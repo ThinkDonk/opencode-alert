@@ -1,3 +1,5 @@
+[English](README.md)
+
 # opencode-alert
 
 [OpenCode](https://opencode.ai) 跨平台通知插件 —— 桌面通知、音效提醒和 Webhook 通知，支持项目级配置。
@@ -6,9 +8,19 @@
 
 - 桌面通知（Windows Toast、macOS 通知中心、Linux notify-send）
 - 音效提醒，支持自定义音频文件
-- 智能过滤：安静时段、通知节流、终端焦点检测
+- 智能过滤：安静时段、通知节流
 - 项目级配置，支持深度合并
 - 零上下文污染（不注入任何工具或提示词）
+
+## 技术栈
+
+- **运行时**: TypeScript (strict ESM), Node.js ≥18
+- **构建**: tsup
+- **测试**: Vitest
+- **代码检查**: Biome
+- **桌面通知**: node-notifier（可选依赖）+ 系统 shell 回退方案
+- **声音**: 平台原生命令（afplay / ffplay / PowerShell）
+- **配置**: JSONC + 深度合并 + JSON Schema 校验
 
 ## 安装
 
@@ -94,11 +106,12 @@
 
 ## 事件类型
 
-| 事件 | 触发时机 | 默认通知 |
-|------|---------|---------|
-| `idle` | AI 任务完成 | "任务完成" |
-| `error` | 会话出错 | "发生错误" |
-| `permission` | AI 请求权限 | "需要权限" |
+| 事件 | 触发条件 | 默认通知内容 |
+|------|---------|-------------|
+| `idle` | AI 任务完成 | 会话标题 |
+| `error` | 会话错误 | 错误信息 |
+| `permission` | AI 请求权限 | 权限详情 |
+| `question` | AI 提出问题 | 会话标题 |
 
 ## 平台要求
 

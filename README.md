@@ -1,3 +1,5 @@
+[中文文档](README-zh.md)
+
 # opencode-alert
 
 Cross-platform notification plugin for [OpenCode](https://opencode.ai) — desktop alerts, sound alerts, and webhook notifications with project-level configuration.
@@ -6,9 +8,19 @@ Cross-platform notification plugin for [OpenCode](https://opencode.ai) — deskt
 
 - Desktop notifications (Windows Toast, macOS Notification Center, Linux notify-send)
 - Sound alerts with custom audio file support
-- Smart filtering: quiet hours, throttle, terminal focus detection
+- Smart filtering: quiet hours, throttle
 - Project-level configuration with deep merge
 - Zero context pollution (no tools or prompts injected)
+
+## Tech Stack
+
+- **Runtime**: TypeScript (strict ESM), Node.js ≥18
+- **Build**: tsup
+- **Test**: Vitest
+- **Lint**: Biome
+- **Desktop notifications**: node-notifier (optional peer dependency) with OS shell fallbacks
+- **Sound**: Platform-native commands (afplay / ffplay / PowerShell)
+- **Config**: JSONC with deep merge and JSON Schema validation
 
 ## Installation
 
@@ -96,9 +108,10 @@ Project config overrides global config (deep merge).
 
 | Event | Trigger | Default Notification |
 |-------|---------|---------------------|
-| `idle` | AI task completed | "Task Completed" |
-| `error` | Session error | "Error Occurred" |
-| `permission` | AI requests permission | "Permission Required" |
+| `idle` | AI task completed | Session title |
+| `error` | Session error | Error message |
+| `permission` | AI requests permission | Permission details |
+| `question` | AI asks a question | Session title |
 
 ## Platform Requirements
 
@@ -113,19 +126,6 @@ Project config overrides global config (deep merge).
 - **macOS**: No additional setup (uses `afplay`)
 - **Linux**: Requires `ffmpeg` (install: `sudo apt install ffmpeg`)
 - **Windows**: No additional setup (uses PowerShell SoundPlayer/MediaPlayer)
-
-### Custom Notification Icon (Windows)
-
-To customize the small app icon shown in the top-left corner of Windows toast notifications:
-
-1. Download [SnoreToast](https://github.com/KDE/snoretoast) and note its path
-2. Run the following command to register an app shortcut with your icon:
-
-```powershell
-SnoreToast.exe -install "OpenCode" "com.opencode.alert" "C:\path\to\icon.png"
-```
-
-After installation, notifications from opencode-alert will display the custom icon. This step is optional — without it, Windows uses a default icon.
 
 ## Comparison
 
