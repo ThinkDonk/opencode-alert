@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opencode.ai/alert.schema.json",
+  "title": "opencode-alert Configuration",
+  "description": "Configuration schema for the opencode-alert OpenCode plugin",
+  "type": "object",
+  "properties": {
+    "enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Global toggle for the plugin"
+    },
+    "desktop": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable desktop notifications"
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["idle", "error", "permission"]
+          },
+          "default": ["idle", "error", "permission"],
+          "description": "Which event types trigger desktop notifications"
+        }
+      },
+      "additionalProperties": false
+    },
+    "sound": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable sound notifications"
+        },
+        "events": {
+          "type": "object",
+          "properties": {
+            "idle": { "type": "string" },
+            "error": { "type": "string" },
+            "permission": { "type": "string" }
+          },
+          "additionalProperties": false,
+          "description": "Sound file per event type"
+        },
+        "default": {
+          "type": "string",
+          "default": "ding.wav",
+          "description": "Default sound file name"
+        },
+        "customDir": {
+          "type": "string",
+          "default": "",
+          "description": "Directory for custom sound files"
+        }
+      },
+      "additionalProperties": false
+    },
+    "filter": {
+      "type": "object",
+      "properties": {
+        "skipOnFocus": {
+          "type": "boolean",
+          "default": true,
+          "description": "Skip notifications when terminal is focused"
+        },
+        "quietHours": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "start": { "type": "string", "pattern": "^[0-9]{2}:[0-9]{2}$", "default": "22:00" },
+            "end": { "type": "string", "pattern": "^[0-9]{2}:[0-9]{2}$", "default": "08:00" }
+          },
+          "additionalProperties": false
+        },
+        "minInterval": {
+          "type": "number",
+          "default": 5,
+          "minimum": 0,
+          "description": "Minimum seconds between same-type notifications"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
