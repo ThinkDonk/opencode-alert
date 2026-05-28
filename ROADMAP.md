@@ -49,7 +49,8 @@ Planned config addition:
   - Project-specific quiet hours
   - Override global settings per project
 - [ ] Notification history log (`~/.config/opencode/alerts.log`)
-- [ ] Click-to-focus (click notification → bring terminal to front)
+- [ ] Click-to-focus (click notification → bring opencode TUI to front)
+- [ ] Smart focus-based notification skipping (detect if TUI is visible to user)
 - [ ] Sub-session / background agent notification toggle
 - [ ] Custom event subscription via plugin API
 - [ ] Notification templates (user-customizable message format)
@@ -80,5 +81,5 @@ Planned project-level config (`.opencode/alert.jsonc`):
 - [ ] CONTRIBUTING.md
 - [ ] Integration with opencode-workspace / OCX
 - [ ] i18n support for notification messages
-- [ ] Terminal focus detection on Windows & Linux (currently macOS only via opencode-notify approach)
+- [ ] Terminal focus detection — skip notifications when user is actively watching the TUI (removed from v0.1.0 due to unreliable detection on Windows; needs new approach, possibly using OpenCode SDK session state or TUI event hooks)
 
