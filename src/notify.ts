@@ -3,7 +3,7 @@ import { sendDesktopNotification } from "./desktop.js";
 import { toAlertEvent } from "./events.js";
 import type { AlertEventType } from "./events.js";
 import { playSound } from "./sound.js";
-import { isInQuietHours, shouldThrottle } from "./utils.js";
+import { isInQuietHours, isTerminalFocused, shouldThrottle } from "./utils.js";
 
 interface PluginContext {
   $: any;
@@ -22,6 +22,7 @@ export async function dispatch(
   const { type, message } = alertEvent;
 
   if (isInQuietHours(config.filter.quietHours)) return;
+    if (config.filter.skipOnFocus && isTerminalFocused()) return;
   if (shouldThrottle(type, config.filter.minInterval)) return;
 
   const promises: Promise<void>[] = [];
