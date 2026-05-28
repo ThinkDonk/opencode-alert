@@ -23,7 +23,8 @@ export async function dispatch(
     (alertEvent.type === "idle" || alertEvent.type === "permission") &&
     ctx.client
   ) {
-    await enrichFromSession(alertEvent, ctx.client);
+    const shouldNotify = await enrichFromSession(alertEvent, ctx.client);
+    if (!shouldNotify) return;
   }
 
   const { type, message } = alertEvent;
@@ -76,9 +77,12 @@ function isQuestionText(text: string): boolean {
 async function enrichFromSession(
   alertEvent: AlertEvent,
   client: any,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const sessionResult = await client.session.get({ path: { id: alertEvent.sessionID } });
+    if (sessionResult?.data?.parentID) {
+      return false;
+    }
     if (sessionResult?.data?.title) {
       const title = String(sessionResult.data.title);
       const truncated =
@@ -111,4 +115,6 @@ async function enrichFromSession(
   } catch (e) {
     console.error("[opencode-alert] enrichFromSession session.messages failed:", e);
   }
+
+  return true;
 }

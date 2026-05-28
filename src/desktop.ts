@@ -39,7 +39,7 @@ export async function sendDesktopNotification(
     await new Promise<void>((resolve) => {
       notifier.notify(
         {
-          title: `OpenCode — ${TITLES[type]}`,
+          title: `OpenCode ${TITLES[type]}`,
           message,
           sound: false,
           wait: false,
@@ -57,7 +57,7 @@ export async function sendDesktopNotification(
         await $`osascript -e 'display notification "${escapedMsg}" with title "${escapedTitle}"'`.quiet();
       } else if (platform === "linux") {
         const escapedMsg = shellEscape(message);
-        const escapedTitle = shellEscape(`OpenCode — ${TITLES[type]}`);
+        const escapedTitle = shellEscape(`OpenCode ${TITLES[type]}`);
         await $`notify-send "${escapedTitle}" "${escapedMsg}"`.quiet();
       }
     } catch {
