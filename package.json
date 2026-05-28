@@ -4,7 +4,12 @@
   "description": "Cross-platform notification plugin for OpenCode — desktop alerts, sound alerts, and webhook notifications with project-level configuration",
   "type": "module",
   "main": "./dist/index.js",
-  "exports": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "types": "./dist/index.d.ts",
   "files": ["dist", "alert.schema.json", "sounds", "icon.png"],
   "scripts": {
@@ -28,7 +33,14 @@
     "type": "git",
     "url": "git+https://github.com/opencode-alert/opencode-alert.git"
   },
+  "homepage": "https://github.com/opencode-alert/opencode-alert#readme",
+  "bugs": {
+    "url": "https://github.com/opencode-alert/opencode-alert/issues"
+  },
   "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "peerDependencies": {
     "node-notifier": "^10.0.1"
   },
