@@ -1,7 +1,33 @@
 import { execSync } from "node:child_process";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
 import type { QuietHoursConfig } from "./config.js";
 
-const lastNotification: Record<string, number> = {};
+const THROTTLE_FILE = join(homedir(), ".config", "opencode", "alert-throttle.json");
+
+let lastNotification: Record<string, number> = {};
+
+function loadThrottleState(): void {
+  try {
+    const data = readFileSync(THROTTLE_FILE, "utf-8");
+    lastNotification = JSON.parse(data);
+  } catch {
+    lastNotification = {};
+  }
+}
+
+function saveThrottleState(): void {
+  try {
+    const dir = join(homedir(), ".config", "opencode");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(THROTTLE_FILE, JSON.stringify(lastNotification), "utf-8");
+  } catch {
+    // Persistence is best-effort
+  }
+}
+
+loadThrottleState();
 
 export function isTerminalFocused(): boolean {
   const platform = process.platform;
@@ -78,5 +104,6 @@ export function shouldThrottle(
   const last = lastNotification[eventType] ?? 0;
   if (now - last < minInterval * 1000) return true;
   lastNotification[eventType] = now;
+    saveThrottleState();
   return false;
 }
