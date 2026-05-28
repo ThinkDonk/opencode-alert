@@ -1,5 +1,5 @@
 import { loadConfig } from "./src/config.js";
-import { dispatch } from "./src/notify.js";
+import { dispatch, updateCurrentSession } from "./src/notify.js";
 
 interface PluginInitContext {
   project: unknown;
@@ -18,6 +18,7 @@ export default async function opencodeAlert(ctx: PluginInitContext) {
 
   return {
     event: async ({ event }: { event: unknown }) => {
+      updateCurrentSession(event);
       await dispatch(event, config, ctx);
     },
     "permission.ask": async (_input: unknown, _output: unknown) => {

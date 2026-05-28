@@ -11,6 +11,7 @@ export interface QuietHoursConfig {
 
 export interface FilterConfig {
   skipOnFocus: boolean;
+  skipIfCurrentSession: boolean;
   quietHours: QuietHoursConfig;
   minInterval: number;
 }
@@ -52,7 +53,8 @@ const DEFAULT_CONFIG: AlertConfig = {
     customDir: "",
   },
   filter: {
-    skipOnFocus: true,
+    skipOnFocus: false,
+    skipIfCurrentSession: true,
     quietHours: {
       enabled: false,
       start: "22:00",

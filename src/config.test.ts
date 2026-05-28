@@ -85,6 +85,8 @@ describe("loadConfig", () => {
     expect(config.desktop.enabled).toBe(true);
     expect(config.filter.quietHours.enabled).toBe(false);
     expect(config.filter.minInterval).toBe(5);
+    expect(config.filter.skipOnFocus).toBe(false);
+    expect(config.filter.skipIfCurrentSession).toBe(true);
   });
 
   it("project config overrides defaults", () => {

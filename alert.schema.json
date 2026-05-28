@@ -67,8 +67,13 @@
       "properties": {
         "skipOnFocus": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Skip notifications when terminal is focused"
+        },
+        "skipIfCurrentSession": {
+          "type": "boolean",
+          "default": true,
+          "description": "Skip idle notification when the session is the one the user is currently interacting with"
         },
         "quietHours": {
           "type": "object",
