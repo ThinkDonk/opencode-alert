@@ -6,7 +6,7 @@
   "main": "./dist/index.js",
   "exports": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist", "alert.schema.json", "sounds"],
+  "files": ["dist", "alert.schema.json", "sounds", "icon.png"],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
