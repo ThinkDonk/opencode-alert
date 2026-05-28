@@ -13,6 +13,14 @@ try {
 
 const PLATFORM = process.platform;
 
+function shellEscape(str: string): string {
+  return str.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/`/g, "\\`");
+}
+
+function psEscape(str: string): string {
+  return str.replace(/'/g, "''").replace(/\$/g, "`$").replace(/`/g, "``");
+}
+
 function resolveSoundPath(soundFile: string, customDir: string): string | null {
   if (customDir) {
     const customPath = join(customDir, soundFile);
@@ -47,13 +55,13 @@ export async function playSound(
   try {
     switch (PLATFORM) {
       case "darwin":
-        await $`afplay "${soundPath}"`.quiet();
+        await $`afplay "${shellEscape(soundPath)}"`.quiet();
         break;
       case "linux":
-        await $`ffplay -nodisp -autoexit -loglevel quiet "${soundPath}"`.quiet();
+        await $`ffplay -nodisp -autoexit -loglevel quiet "${shellEscape(soundPath)}"`.quiet();
         break;
       case "win32": {
-        const escaped = soundPath.replace(/'/g, "''");
+        const escaped = psEscape(soundPath);
         if (soundFile.endsWith(".wav")) {
           await $`powershell -NoProfile -Command "(New-Object Media.SoundPlayer '${escaped}').PlaySync()"`.quiet();
         } else {
