@@ -95,10 +95,7 @@ describe("toAlertEvent", () => {
     };
     const result = toAlertEvent(raw);
     expect(result).toMatchObject({ type: "permission" });
-    expect(result).toHaveProperty(
-      "message",
-      "Permission required: Edit file: src/utils.ts",
-    );
+    expect(result).toHaveProperty("message", "Edit file: src/utils.ts");
   });
 
   it("handles permission.updated event without title falls back to type", () => {
@@ -109,7 +106,7 @@ describe("toAlertEvent", () => {
     };
     const result = toAlertEvent(raw);
     expect(result).toMatchObject({ type: "permission" });
-    expect(result).toHaveProperty("message", "Permission required: tool_call");
+    expect(result).toHaveProperty("message", "tool_call");
   });
 
   it("handles permission.updated event without input.type shows unknown", () => {
@@ -117,7 +114,7 @@ describe("toAlertEvent", () => {
       type: "permission.updated",
       sessionID: "abc",
     });
-    expect(result).toHaveProperty("message", "Permission required: unknown");
+    expect(result).toHaveProperty("message", "Permission required");
   });
 
   it("handles permission.updated event with empty input object shows unknown", () => {
@@ -127,7 +124,7 @@ describe("toAlertEvent", () => {
       properties: {},
     };
     const result = toAlertEvent(raw);
-    expect(result).toHaveProperty("message", "Permission required: unknown");
+    expect(result).toHaveProperty("message", "Permission required");
   });
 
   it("detects question event type from session.idle", () => {

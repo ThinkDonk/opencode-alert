@@ -51,11 +51,15 @@ export function toAlertEvent(raw: unknown): AlertEvent | null {
       const props = event.properties as Record<string, unknown> | undefined;
       const title = props?.title as string | undefined;
       const permType = props?.type as string | undefined;
+      const description = (props?.description ??
+        props?.message ??
+        props?.content) as string | undefined;
+      const detail = description ? `: ${description}` : "";
       return {
         raw,
         type: "permission",
         sessionID,
-        message: `Permission required: ${title ?? permType ?? "unknown"}`,
+        message: `${title ?? permType ?? "Permission required"}${detail}`,
         sessionTitle: "",
       };
     }

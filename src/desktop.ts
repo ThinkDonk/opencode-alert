@@ -1,4 +1,9 @@
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { AlertEventType } from "./events.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ICON_PATH = join(__dirname, "..", "icon.png");
 
 function shellEscape(str: string): string {
   return str
@@ -38,6 +43,7 @@ export async function sendDesktopNotification(
           message,
           sound: false,
           wait: false,
+          appIcon: ICON_PATH,
         },
         () => resolve(),
       );

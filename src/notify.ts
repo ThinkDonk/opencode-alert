@@ -19,8 +19,10 @@ export async function dispatch(
 ): Promise<void> {
   const alertEvent = toAlertEvent(rawEvent);
   if (!alertEvent) return;
-
-  if (alertEvent.type === "idle" && ctx.client) {
+  if (
+    (alertEvent.type === "idle" || alertEvent.type === "permission") &&
+    ctx.client
+  ) {
     await enrichFromSession(alertEvent, ctx.client);
   }
 
@@ -76,24 +78,28 @@ async function enrichFromSession(
   client: any,
 ): Promise<void> {
   try {
-    const sessionResult = await client.session.get(alertEvent.sessionID);
+    const sessionResult = await client.session.get({ path: { id: alertEvent.sessionID } });
     if (sessionResult?.data?.title) {
       const title = String(sessionResult.data.title);
       const truncated =
         title.length > 50 ? `${title.substring(0, 47)}...` : title;
-      alertEvent.message = truncated;
       alertEvent.sessionTitle = truncated;
+      if (alertEvent.type === "idle") {
+        alertEvent.message = truncated;
+      } else {
+        alertEvent.message = `${alertEvent.message} (${truncated})`;
+      }
     }
-  } catch {
-    // Best-effort enrichment
+  } catch (e) {
+    console.error("[opencode-alert] enrichFromSession session.get failed:", e);
   }
 
   try {
-    const messagesResult = await client.session.messages(alertEvent.sessionID);
+    const messagesResult = await client.session.messages({ path: { id: alertEvent.sessionID } });
     if (messagesResult?.data && Array.isArray(messagesResult.data)) {
       const messages = messagesResult.data;
       const lastAssistantMsg = messages
-        .filter((m: any) => m.role === "assistant")
+        .filter((m: any) => m.info?.role === "assistant")
         .pop();
       if (lastAssistantMsg?.parts) {
         const text = extractTextFromParts(lastAssistantMsg.parts);
@@ -102,7 +108,7 @@ async function enrichFromSession(
         }
       }
     }
-  } catch {
-    // Best-effort question detection
+  } catch (e) {
+    console.error("[opencode-alert] enrichFromSession session.messages failed:", e);
   }
 }
