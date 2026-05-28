@@ -77,7 +77,7 @@ function readJsonc(filePath: string): Record<string, unknown> | null {
   }
 }
 
-function deepMerge<T extends Record<string, unknown>>(
+export function deepMerge<T extends Record<string, unknown>>(
   target: T,
   source: Record<string, unknown>,
 ): T {
