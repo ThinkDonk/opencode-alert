@@ -38,5 +38,10 @@ export async function dispatch(
     promises.push(playSound(type, config.sound, ctx.$));
   }
 
-  await Promise.allSettled(promises);
+  const results = await Promise.allSettled(promises);
+    for (const result of results) {
+        if (result.status === "rejected") {
+          console.error("[opencode-alert] notification failed:", result.reason);
+        }
+      }
 }
