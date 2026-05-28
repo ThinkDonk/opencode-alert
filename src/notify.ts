@@ -1,7 +1,7 @@
 import type { AlertConfig } from "./config.js";
 import { sendDesktopNotification } from "./desktop.js";
+import type { AlertEvent, AlertEventType } from "./events.js";
 import { toAlertEvent } from "./events.js";
-import type { AlertEventType } from "./events.js";
 import { playSound } from "./sound.js";
 import { isInQuietHours, isTerminalFocused, shouldThrottle } from "./utils.js";
 
@@ -9,6 +9,7 @@ interface PluginContext {
   $: any;
   directory: string;
   worktree?: string;
+  client: any;
 }
 
 export async function dispatch(
@@ -19,10 +20,14 @@ export async function dispatch(
   const alertEvent = toAlertEvent(rawEvent);
   if (!alertEvent) return;
 
+  if (alertEvent.type === "idle" && ctx.client) {
+    await enrichFromSession(alertEvent, ctx.client);
+  }
+
   const { type, message } = alertEvent;
 
   if (isInQuietHours(config.filter.quietHours)) return;
-    if (config.filter.skipOnFocus && isTerminalFocused()) return;
+  if (config.filter.skipOnFocus && isTerminalFocused()) return;
   if (shouldThrottle(type, config.filter.minInterval)) return;
 
   const promises: Promise<void>[] = [];
@@ -39,9 +44,65 @@ export async function dispatch(
   }
 
   const results = await Promise.allSettled(promises);
-    for (const result of results) {
-        if (result.status === "rejected") {
-          console.error("[opencode-alert] notification failed:", result.reason);
+  for (const result of results) {
+    if (result.status === "rejected") {
+      console.error("[opencode-alert] notification failed:", result.reason);
+    }
+  }
+}
+
+function extractTextFromParts(parts: any[]): string {
+  return parts
+    .filter((p: any) => p.type === "text")
+    .map((p: any) => p.text ?? p.content ?? "")
+    .join(" ");
+}
+
+function isQuestionText(text: string): boolean {
+  const trimmed = text.trim().toLowerCase();
+  if (trimmed.endsWith("?")) return true;
+  const questionStarters = [
+    "would you",
+    "do you",
+    "should",
+    "can you",
+    "could you",
+  ];
+  return questionStarters.some((s) => trimmed.startsWith(s));
+}
+
+async function enrichFromSession(
+  alertEvent: AlertEvent,
+  client: any,
+): Promise<void> {
+  try {
+    const sessionResult = await client.session.get(alertEvent.sessionID);
+    if (sessionResult?.data?.title) {
+      const title = String(sessionResult.data.title);
+      const truncated =
+        title.length > 50 ? `${title.substring(0, 47)}...` : title;
+      alertEvent.message = truncated;
+      alertEvent.sessionTitle = truncated;
+    }
+  } catch {
+    // Best-effort enrichment
+  }
+
+  try {
+    const messagesResult = await client.session.messages(alertEvent.sessionID);
+    if (messagesResult?.data && Array.isArray(messagesResult.data)) {
+      const messages = messagesResult.data;
+      const lastAssistantMsg = messages
+        .filter((m: any) => m.role === "assistant")
+        .pop();
+      if (lastAssistantMsg?.parts) {
+        const text = extractTextFromParts(lastAssistantMsg.parts);
+        if (text && isQuestionText(text)) {
+          alertEvent.type = "question";
         }
       }
+    }
+  } catch {
+    // Best-effort question detection
+  }
 }

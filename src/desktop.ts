@@ -1,13 +1,18 @@
 import type { AlertEventType } from "./events.js";
 
 function shellEscape(str: string): string {
-  return str.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/`/g, "\\`");
+  return str
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\$/g, "\\$")
+    .replace(/`/g, "\\`");
 }
 
 const TITLES: Record<AlertEventType, string> = {
   idle: "Task Completed",
   error: "Error Occurred",
   permission: "Permission Required",
+  question: "Question",
 };
 
 type ShellRunner = (

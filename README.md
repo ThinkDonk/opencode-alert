@@ -115,6 +115,19 @@ Project config overrides global config (deep merge).
 - **Linux**: Requires `ffmpeg` (install: `sudo apt install ffmpeg`)
 - **Windows**: No additional setup (uses PowerShell SoundPlayer/MediaPlayer)
 
+### Custom Notification Icon (Windows)
+
+To customize the small app icon shown in the top-left corner of Windows toast notifications:
+
+1. Download [SnoreToast](https://github.com/KDE/snoretoast) and note its path
+2. Run the following command to register an app shortcut with your icon:
+
+```powershell
+SnoreToast.exe -install "OpenCode" "com.opencode.alert" "C:\path\to\icon.png"
+```
+
+After installation, notifications from opencode-alert will display the custom icon. This step is optional — without it, Windows uses a default icon.
+
 ## Comparison
 
 | Feature | opencode-alert | opencode-notify | opencode-notificator |

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { toAlertEvent } from "./events.js";
 
 describe("toAlertEvent", () => {
@@ -25,6 +25,7 @@ describe("toAlertEvent", () => {
       type: "idle",
       sessionID: "abc",
       message: "Task completed",
+      sessionTitle: "",
     });
   });
 
@@ -35,37 +36,111 @@ describe("toAlertEvent", () => {
       type: "error",
       sessionID: "abc",
       message: "Error occurred",
+      sessionTitle: "",
     });
   });
 
-  it("handles permission.updated event with known input type", () => {
+  it("handles session.error with specific error message", () => {
+    const raw = {
+      type: "session.error",
+      sessionID: "abc",
+      properties: {
+        error: {
+          name: "APIError",
+          data: { message: "Rate limit exceeded", statusCode: 429 },
+        },
+      },
+    };
+    expect(toAlertEvent(raw)).toMatchObject({
+      type: "error",
+      sessionID: "abc",
+      message: "Rate limit exceeded",
+    });
+  });
+
+  it("handles session.error with ProviderAuthError message", () => {
+    const raw = {
+      type: "session.error",
+      sessionID: "abc",
+      properties: {
+        error: {
+          name: "ProviderAuthError",
+          data: { providerID: "openai", message: "Invalid API key" },
+        },
+      },
+    };
+    expect(toAlertEvent(raw)).toMatchObject({
+      type: "error",
+      message: "Invalid API key",
+    });
+  });
+
+  it("handles session.error with missing error data falls back", () => {
+    const raw = {
+      type: "session.error",
+      sessionID: "abc",
+      properties: { error: { name: "UnknownError" } },
+    };
+    expect(toAlertEvent(raw)).toMatchObject({
+      type: "error",
+      message: "Error occurred",
+    });
+  });
+
+  it("handles permission.updated event with title", () => {
     const raw = {
       type: "permission.updated",
       sessionID: "abc",
-      properties: { input: { type: "tool_call" } },
+      properties: { title: "Edit file: src/utils.ts", type: "tool_call" },
+    };
+    const result = toAlertEvent(raw);
+    expect(result).toMatchObject({ type: "permission" });
+    expect(result).toHaveProperty(
+      "message",
+      "Permission required: Edit file: src/utils.ts",
+    );
+  });
+
+  it("handles permission.updated event without title falls back to type", () => {
+    const raw = {
+      type: "permission.updated",
+      sessionID: "abc",
+      properties: { type: "tool_call" },
     };
     const result = toAlertEvent(raw);
     expect(result).toMatchObject({ type: "permission" });
     expect(result).toHaveProperty("message", "Permission required: tool_call");
   });
 
-  it("permission event with missing input.type shows unknown", () => {
-    const result = toAlertEvent({ type: "permission.updated", sessionID: "abc" });
+  it("handles permission.updated event without input.type shows unknown", () => {
+    const result = toAlertEvent({
+      type: "permission.updated",
+      sessionID: "abc",
+    });
     expect(result).toHaveProperty("message", "Permission required: unknown");
   });
 
-  it("permission event with empty input object shows unknown", () => {
+  it("handles permission.updated event with empty input object shows unknown", () => {
     const raw = {
       type: "permission.updated",
       sessionID: "abc",
-      properties: { input: {} },
+      properties: {},
     };
     const result = toAlertEvent(raw);
     expect(result).toHaveProperty("message", "Permission required: unknown");
   });
 
+  it("detects question event type from session.idle", () => {
+    const raw = { type: "session.idle", sessionID: "abc" };
+    const result = toAlertEvent(raw);
+    expect(result).toMatchObject({ type: "idle" });
+  });
+
   it("extracts sessionID from event.sessionID", () => {
-    const result = toAlertEvent({ type: "session.idle", sessionID: "direct-id" });
+    const result = toAlertEvent({
+      type: "session.idle",
+      sessionID: "direct-id",
+    });
     expect(result).toHaveProperty("sessionID", "direct-id");
   });
 

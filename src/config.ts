@@ -1,6 +1,6 @@
-import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
+import { join } from "node:path";
 import type { AlertEventType } from "./events.js";
 
 export interface QuietHoursConfig {
@@ -38,7 +38,7 @@ const DEFAULT_CONFIG: AlertConfig = {
   enabled: true,
   desktop: {
     enabled: true,
-    events: ["idle", "error", "permission"],
+    events: ["idle", "error", "permission", "question"],
   },
   sound: {
     enabled: true,
@@ -46,6 +46,7 @@ const DEFAULT_CONFIG: AlertConfig = {
       idle: "ding.wav",
       error: "alert.wav",
       permission: "ping.wav",
+      question: "ping.wav",
     },
     default: "ding.wav",
     customDir: "",
@@ -62,9 +63,7 @@ const DEFAULT_CONFIG: AlertConfig = {
 };
 
 function stripJsonComments(str: string): string {
-  return str
-    .replace(/\/\/.*$/gm, "")
-    .replace(/\/\*[\s\S]*?\*\//g, "");
+  return str.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
 }
 
 function readJsonc(filePath: string): Record<string, unknown> | null {
@@ -86,8 +85,12 @@ export function deepMerge<T extends Record<string, unknown>>(
     const sv = source[key];
     const tv = result[key];
     if (
-      sv && typeof sv === "object" && !Array.isArray(sv) &&
-      tv && typeof tv === "object" && !Array.isArray(tv)
+      sv &&
+      typeof sv === "object" &&
+      !Array.isArray(sv) &&
+      tv &&
+      typeof tv === "object" &&
+      !Array.isArray(tv)
     ) {
       result[key] = deepMerge(
         tv as Record<string, unknown>,
@@ -112,7 +115,7 @@ export function loadConfig(
   const globalConfig = readJsonc(globalPath) ?? {};
   const projectConfig =
     readJsonc(projectPath1) ?? readJsonc(projectPath2) ?? {};
-  const envConfig = envPath ? readJsonc(envPath) ?? {} : {};
+  const envConfig = envPath ? (readJsonc(envPath) ?? {}) : {};
 
   const merged = deepMerge(
     deepMerge(DEFAULT_CONFIG, globalConfig),

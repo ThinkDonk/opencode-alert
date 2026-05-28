@@ -1,8 +1,8 @@
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
-import type { AlertEventType } from "./events.js";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { SoundConfig } from "./config.js";
+import type { AlertEventType } from "./events.js";
 
 let __dirname: string;
 try {
@@ -14,7 +14,11 @@ try {
 const PLATFORM = process.platform;
 
 function shellEscape(str: string): string {
-  return str.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/`/g, "\\`");
+  return str
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\$/g, "\\$")
+    .replace(/`/g, "\\`");
 }
 
 function psEscape(str: string): string {
@@ -75,8 +79,9 @@ export async function playSound(
   }
 }
 
-interface TaggedShellRunner {
-  (strings: TemplateStringsArray, ...values: unknown[]): Promise<{
-    quiet(): Promise<void>;
-  }>;
-}
+type TaggedShellRunner = (
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+) => Promise<{
+  quiet(): Promise<void>;
+}>;

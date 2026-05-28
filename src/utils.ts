@@ -1,10 +1,15 @@
 import { execSync } from "node:child_process";
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
+import { join } from "node:path";
 import type { QuietHoursConfig } from "./config.js";
 
-const THROTTLE_FILE = join(homedir(), ".config", "opencode", "alert-throttle.json");
+const THROTTLE_FILE = join(
+  homedir(),
+  ".config",
+  "opencode",
+  "alert-throttle.json",
+);
 
 let lastNotification: Record<string, number> = {};
 
@@ -28,6 +33,15 @@ function saveThrottleState(): void {
 }
 
 loadThrottleState();
+
+export function resetThrottleState(): void {
+  lastNotification = {};
+  try {
+    unlinkSync(THROTTLE_FILE);
+  } catch {
+    // File may not exist
+  }
+}
 
 export function isTerminalFocused(): boolean {
   const platform = process.platform;
@@ -53,10 +67,10 @@ export function isTerminalFocused(): boolean {
       let pid: number = ppid;
       while (pid > 1) {
         if (pid === activePid) return true;
-        const stat = execSync(
-          `cat /proc/${pid}/stat 2>/dev/null || echo ""`,
-          { encoding: "utf-8", timeout: 1000 },
-        ).trim();
+        const stat = execSync(`cat /proc/${pid}/stat 2>/dev/null || echo ""`, {
+          encoding: "utf-8",
+          timeout: 1000,
+        }).trim();
         if (!stat) break;
         const ppidStr = stat.split(")")[1]?.trim().split(" ")[1];
         if (!ppidStr) break;
@@ -136,6 +150,6 @@ export function shouldThrottle(
   const last = lastNotification[eventType] ?? 0;
   if (now - last < minInterval * 1000) return true;
   lastNotification[eventType] = now;
-    saveThrottleState();
+  saveThrottleState();
   return false;
 }

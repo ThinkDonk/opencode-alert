@@ -22,7 +22,7 @@ export default async function opencodeAlert(ctx: PluginInitContext) {
     },
     "permission.ask": async (_input: unknown, _output: unknown) => {
       await dispatch(
-        { type: "permission.updated", properties: { input: _input } },
+        { type: "permission.updated", properties: _input },
         config,
         ctx,
       );

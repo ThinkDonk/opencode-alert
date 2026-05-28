@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
-import { existsSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { deepMerge, loadConfig } from "./config.js";
 
 vi.mock("node:os", async (importOriginal) => {
@@ -148,11 +148,7 @@ describe("loadConfig", () => {
 
   it("alert.jsonc at project root also works", () => {
     const configPath = join(tmpDir, "alert.jsonc");
-    writeFileSync(
-      configPath,
-      JSON.stringify({ enabled: false }),
-      "utf-8",
-    );
+    writeFileSync(configPath, JSON.stringify({ enabled: false }), "utf-8");
 
     const config = loadConfig(tmpDir);
     expect(config.enabled).toBe(false);

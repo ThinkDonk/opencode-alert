@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { isInQuietHours, shouldThrottle } from "./utils.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { isInQuietHours, resetThrottleState, shouldThrottle } from "./utils.js";
 
 describe("isInQuietHours", () => {
   afterEach(() => {
@@ -7,65 +7,89 @@ describe("isInQuietHours", () => {
   });
 
   it("returns false when disabled", () => {
-    expect(isInQuietHours({ enabled: false, start: "00:00", end: "23:59" })).toBe(false);
+    expect(
+      isInQuietHours({ enabled: false, start: "00:00", end: "23:59" }),
+    ).toBe(false);
   });
 
   it("returns true within overnight quiet hours (23:00 in 22:00-08:00)", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T23:00:00"));
-    expect(isInQuietHours({ enabled: true, start: "22:00", end: "08:00" })).toBe(true);
+    expect(
+      isInQuietHours({ enabled: true, start: "22:00", end: "08:00" }),
+    ).toBe(true);
   });
 
   it("returns true within overnight quiet hours (02:00 in 22:00-08:00)", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T02:00:00"));
-    expect(isInQuietHours({ enabled: true, start: "22:00", end: "08:00" })).toBe(true);
+    expect(
+      isInQuietHours({ enabled: true, start: "22:00", end: "08:00" }),
+    ).toBe(true);
   });
 
   it("returns false outside overnight quiet hours", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T14:00:00"));
-    expect(isInQuietHours({ enabled: true, start: "22:00", end: "08:00" })).toBe(false);
+    expect(
+      isInQuietHours({ enabled: true, start: "22:00", end: "08:00" }),
+    ).toBe(false);
   });
 
   it("returns true within same-day quiet hours", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T10:00:00"));
-    expect(isInQuietHours({ enabled: true, start: "09:00", end: "17:00" })).toBe(true);
+    expect(
+      isInQuietHours({ enabled: true, start: "09:00", end: "17:00" }),
+    ).toBe(true);
   });
 
   it("returns false outside same-day quiet hours", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T18:00:00"));
-    expect(isInQuietHours({ enabled: true, start: "09:00", end: "17:00" })).toBe(false);
+    expect(
+      isInQuietHours({ enabled: true, start: "09:00", end: "17:00" }),
+    ).toBe(false);
   });
 
   it("returns true at exact start of overnight range", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T22:00:00"));
-    expect(isInQuietHours({ enabled: true, start: "22:00", end: "08:00" })).toBe(true);
+    expect(
+      isInQuietHours({ enabled: true, start: "22:00", end: "08:00" }),
+    ).toBe(true);
   });
 
   it("returns false at exact end of overnight range", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T08:00:00"));
-    expect(isInQuietHours({ enabled: true, start: "22:00", end: "08:00" })).toBe(false);
+    expect(
+      isInQuietHours({ enabled: true, start: "22:00", end: "08:00" }),
+    ).toBe(false);
   });
 
   it("returns true at exact start of same-day range", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T09:00:00"));
-    expect(isInQuietHours({ enabled: true, start: "09:00", end: "17:00" })).toBe(true);
+    expect(
+      isInQuietHours({ enabled: true, start: "09:00", end: "17:00" }),
+    ).toBe(true);
   });
 
   it("returns false at exact end of same-day range", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T17:00:00"));
-    expect(isInQuietHours({ enabled: true, start: "09:00", end: "17:00" })).toBe(false);
+    expect(
+      isInQuietHours({ enabled: true, start: "09:00", end: "17:00" }),
+    ).toBe(false);
   });
 });
 
 describe("shouldThrottle", () => {
+  beforeEach(() => {
+    resetThrottleState();
+  });
+
   afterEach(() => {
     vi.useRealTimers();
   });

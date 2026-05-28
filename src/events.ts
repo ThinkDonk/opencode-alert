@@ -1,10 +1,11 @@
-export type AlertEventType = "idle" | "error" | "permission";
+export type AlertEventType = "idle" | "error" | "permission" | "question";
 
 export interface AlertEvent {
   raw: unknown;
   type: AlertEventType;
   sessionID: string;
   message: string;
+  sessionTitle: string;
 }
 
 export function toAlertEvent(raw: unknown): AlertEvent | null {
@@ -14,23 +15,50 @@ export function toAlertEvent(raw: unknown): AlertEvent | null {
   const sessionID =
     (event.sessionID as string) ??
     ((event.properties as Record<string, unknown>)?.sessionID as string) ??
-    (((event.properties as Record<string, unknown>)?.info as Record<string, unknown>)?.id as string) ??
+    ((
+      (event.properties as Record<string, unknown>)?.info as Record<
+        string,
+        unknown
+      >
+    )?.id as string) ??
     "unknown";
 
   switch (event.type) {
     case "session.idle":
-      return { raw, type: "idle", sessionID, message: "Task completed" };
-    case "session.error":
-      return { raw, type: "error", sessionID, message: "Error occurred" };
-    case "permission.updated":
+      return {
+        raw,
+        type: "idle",
+        sessionID,
+        message: "Task completed",
+        sessionTitle: "",
+      };
+    case "session.error": {
+      const err = (event.properties as Record<string, unknown>)?.error as
+        | Record<string, unknown>
+        | undefined;
+      const errMsg = (err?.data as Record<string, unknown>)?.message as
+        | string
+        | undefined;
+      return {
+        raw,
+        type: "error",
+        sessionID,
+        message: errMsg ?? "Error occurred",
+        sessionTitle: "",
+      };
+    }
+    case "permission.updated": {
+      const props = event.properties as Record<string, unknown> | undefined;
+      const title = props?.title as string | undefined;
+      const permType = props?.type as string | undefined;
       return {
         raw,
         type: "permission",
         sessionID,
-        message: `Permission required: ${
-          ((event.properties as Record<string, unknown>)?.input as Record<string, unknown>)?.type ?? "unknown"
-        }`,
+        message: `Permission required: ${title ?? permType ?? "unknown"}`,
+        sessionTitle: "",
       };
+    }
     default:
       return null;
   }
