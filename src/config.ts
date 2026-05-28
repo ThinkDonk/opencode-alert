@@ -62,8 +62,47 @@ const DEFAULT_CONFIG: AlertConfig = {
   },
 };
 
-function stripJsonComments(str: string): string {
-  return str.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+export function stripJsonComments(str: string): string {
+  let result = "";
+  let i = 0;
+  let inString = false;
+  while (i < str.length) {
+    if (inString) {
+      if (str[i] === "\\" && i + 1 < str.length) {
+        result += str[i] + str[i + 1];
+        i += 2;
+        continue;
+      }
+      if (str[i] === '"') {
+        inString = false;
+      }
+      result += str[i];
+      i++;
+    } else {
+      if (str[i] === '"') {
+        inString = true;
+        result += str[i];
+        i++;
+      } else if (str[i] === "/" && i + 1 < str.length && str[i + 1] === "/") {
+        while (i < str.length && str[i] !== "\n") {
+          i++;
+        }
+      } else if (str[i] === "/" && i + 1 < str.length && str[i + 1] === "*") {
+        i += 2;
+        while (
+          i < str.length &&
+          !(str[i] === "*" && i + 1 < str.length && str[i + 1] === "/")
+        ) {
+          i++;
+        }
+        i += 2;
+      } else {
+        result += str[i];
+        i++;
+      }
+    }
+  }
+  return result;
 }
 
 function readJsonc(filePath: string): Record<string, unknown> | null {

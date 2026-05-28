@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { deepMerge, loadConfig } from "./config.js";
+import { deepMerge, loadConfig, stripJsonComments } from "./config.js";
 
 vi.mock("node:os", async (importOriginal) => {
   const mod = await importOriginal<typeof import("node:os")>();
@@ -154,5 +154,34 @@ describe("loadConfig", () => {
     expect(config.enabled).toBe(false);
 
     rmSync(configPath, { force: true });
+  });
+});
+
+describe("stripJsonComments", () => {
+  it("should preserve URLs containing //", () => {
+    const jsonc = `{"url": "https://example.com/api", "name": "test"}`;
+    const result = JSON.parse(stripJsonComments(jsonc));
+    expect(result.url).toBe("https://example.com/api");
+  });
+
+  it("should strip single-line comments", () => {
+    const jsonc = `{
+  // comment
+  "key": "value"
+}`;
+    const result = JSON.parse(stripJsonComments(jsonc));
+    expect(result).toEqual({ key: "value" });
+  });
+
+  it("should strip multi-line comments", () => {
+    const jsonc = `{ /* block */ "key": "value" }`;
+    const result = JSON.parse(stripJsonComments(jsonc));
+    expect(result).toEqual({ key: "value" });
+  });
+
+  it("should handle escaped quotes inside strings", () => {
+    const jsonc = `{"key": "val\\"ue"}`;
+    const result = JSON.parse(stripJsonComments(jsonc));
+    expect(result.key).toBe('val"ue');
   });
 });
