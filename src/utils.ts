@@ -66,11 +66,43 @@ export function isTerminalFocused(): boolean {
     }
 
     if (platform === "win32") {
+      const script = [
+        "$ProgressPreference = 'SilentlyContinue'",
+        "$ErrorActionPreference = 'SilentlyContinue'",
+        'Add-Type @"',
+        "using System;",
+        "using System.Runtime.InteropServices;",
+        "public class W {",
+        '  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();',
+        '  [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();',
+        '  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);',
+        "}",
+        '"@',
+        "$cw = [W]::GetConsoleWindow()",
+        "if ($cw -ne [IntPtr]::Zero) {",
+        "  if ($cw -eq [W]::GetForegroundWindow()) { '1'; exit }",
+        "} else {",
+        "  $p = 0",
+        "  [W]::GetWindowThreadProcessId([W]::GetForegroundWindow(), [ref]$p) | Out-Null",
+        `  $r = ${ppid}`,
+        "  while ($r -gt 1) {",
+        "    if ($r -eq $p) { '1'; exit }",
+        "    try { $n = (Get-Process -Id $r -EA 0).ProcessName } catch { $n = '' }",
+        "    try { $f = (Get-Process -Id $p -EA 0).ProcessName } catch { $f = '' }",
+        "    if ($n -and $f -and $n -eq $f) { '1'; exit }",
+        '    $par = (Get-CimInstance Win32_Process -Filter "ProcessId=$r" -EA 0).ParentProcessId',
+        "    if (-not $par -or $par -eq $r) { break }",
+        "    $r = $par",
+        "  }",
+        "}",
+        "'0'",
+      ].join("\n");
+      const encoded = Buffer.from(script, "utf-16le").toString("base64");
       const out = execSync(
-        `powershell -NoProfile -Command "(Get-Process -Id ${ppid} -ErrorAction SilentlyContinue).MainWindowHandle"`,
-        { encoding: "utf-8", timeout: 2000 },
+        `powershell -NoProfile -NonInteractive -NoLogo -EncodedCommand ${encoded}`,
+        { encoding: "utf-8", timeout: 3000, stdio: ["pipe", "pipe", "pipe"] },
       ).trim();
-      return out !== "0" && out.length > 0;
+      return out === "1";
     }
   } catch {
     // Detection is best-effort; assume not focused if we cannot determine
