@@ -56,7 +56,10 @@ export async function dispatch(
 
   if (isInQuietHours(config.filter.quietHours)) return;
   if (config.filter.skipOnFocus && isTerminalFocused()) return;
-  if (config.filter.skipIfCurrentSession && alertEvent.type === "idle" && alertEvent.sessionID === currentSessionID) return;
+  if (config.filter.skipIfCurrentSession && alertEvent.type === "idle" && alertEvent.sessionID === currentSessionID) {
+    currentSessionID = null;
+    return;
+  }
   if (shouldThrottle(type, config.filter.minInterval)) return;
 
   const promises: Promise<void>[] = [];
