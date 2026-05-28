@@ -33,9 +33,10 @@ function resolveSoundPath(soundFile: string, customDir: string): string | null {
 export async function playSound(
   type: AlertEventType,
   config: SoundConfig,
-  $: TaggedShellRunner,
+  $?: TaggedShellRunner,
 ): Promise<void> {
   if (!config.enabled) return;
+  if (!$) return;
 
   const soundFile = config.events[type] || config.default;
   if (!soundFile) return;
