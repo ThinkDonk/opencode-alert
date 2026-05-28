@@ -79,7 +79,9 @@ async function enrichFromSession(
   client: any,
 ): Promise<boolean> {
   try {
-    const sessionResult = await client.session.get({ path: { id: alertEvent.sessionID } });
+    const sessionResult = await client.session.get({
+      path: { id: alertEvent.sessionID },
+    });
     if (sessionResult?.data?.parentID) {
       return false;
     }
@@ -99,7 +101,9 @@ async function enrichFromSession(
   }
 
   try {
-    const messagesResult = await client.session.messages({ path: { id: alertEvent.sessionID } });
+    const messagesResult = await client.session.messages({
+      path: { id: alertEvent.sessionID },
+    });
     if (messagesResult?.data && Array.isArray(messagesResult.data)) {
       const messages = messagesResult.data;
       const lastAssistantMsg = messages
@@ -113,7 +117,10 @@ async function enrichFromSession(
       }
     }
   } catch (e) {
-    console.error("[opencode-alert] enrichFromSession session.messages failed:", e);
+    console.error(
+      "[opencode-alert] enrichFromSession session.messages failed:",
+      e,
+    );
   }
 
   return true;
