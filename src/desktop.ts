@@ -1,5 +1,9 @@
 import type { AlertEventType } from "./events.js";
 
+function shellEscape(str: string): string {
+  return str.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/`/g, "\\`");
+}
+
 const TITLES: Record<AlertEventType, string> = {
   idle: "Task Completed",
   error: "Error Occurred",
@@ -41,7 +45,9 @@ export async function sendDesktopNotification(
         const escapedTitle = TITLES[type].replace(/'/g, "'\"'\"'");
         await $`osascript -e 'display notification "${escapedMsg}" with title "${escapedTitle}"'`.quiet();
       } else if (platform === "linux") {
-        await $`notify-send "OpenCode — ${TITLES[type]}" "${message}"`.quiet();
+        const escapedMsg = shellEscape(message);
+        const escapedTitle = shellEscape(`OpenCode — ${TITLES[type]}`);
+        await $`notify-send "${escapedTitle}" "${escapedMsg}"`.quiet();
       }
     } catch {
       // Notification is best-effort, never block the plugin
