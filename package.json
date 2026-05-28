@@ -33,8 +33,11 @@
     "url": "git+https://github.com/opencode-alert/opencode-alert.git"
   },
   "license": "MIT",
-  "dependencies": {
+  "peerDependencies": {
     "node-notifier": "^10.0.1"
+  },
+  "peerDependenciesMeta": {
+    "node-notifier": { "optional": true }
   },
   "devDependencies": {
     "tsup": "^8.0.0",
