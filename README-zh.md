@@ -30,7 +30,7 @@
 
 ```json
 {
-  "plugin": ["opencode-alert"]
+  "plugin": ["@chousyn/opencode-alert"]
 }
 ```
 
@@ -38,7 +38,7 @@
 
 ```json
 {
-  "plugin": ["opencode-alert@0.1.0"]
+  "plugin": ["@chousyn/opencode-alert@0.1.0"]
 }
 ```
 
@@ -129,7 +129,7 @@
 
 ## 与现有插件对比
 
-| 功能 | opencode-alert | opencode-notify | opencode-notificator |
+| 功能 | @chousyn/opencode-alert | opencode-notify | opencode-notificator |
 |------|---------------|-----------------|---------------------|
 | Windows 支持 | 支持 | 支持 | 不支持 |
 | 自定义音效 | 全平台 | 仅 macOS | 全平台 |

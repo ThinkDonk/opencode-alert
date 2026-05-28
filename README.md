@@ -30,7 +30,7 @@ Add to your OpenCode config (`~/.config/opencode/opencode.json`):
 
 ```json
 {
-  "plugin": ["opencode-alert"]
+  "plugin": ["@chousyn/opencode-alert"]
 }
 ```
 
@@ -38,7 +38,7 @@ Or pin a version:
 
 ```json
 {
-  "plugin": ["opencode-alert@0.1.0"]
+  "plugin": ["@chousyn/opencode-alert@0.1.0"]
 }
 ```
 
@@ -129,7 +129,7 @@ Project config overrides global config (deep merge).
 
 ## Comparison
 
-| Feature | opencode-alert | opencode-notify | opencode-notificator |
+| Feature | @chousyn/opencode-alert | opencode-notify | opencode-notificator |
 |---------|---------------|-----------------|---------------------|
 | Windows | Yes | Yes | No |
 | Custom sounds | All platforms | macOS only | All platforms |

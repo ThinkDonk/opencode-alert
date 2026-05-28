@@ -10,7 +10,7 @@
 - [x] Zero context pollution (no tools or prompts injected)
 - [x] alert.schema.json (JSON Schema for config validation)
 - [x] README & installation guide
-- [x] Publish to npm as `opencode-alert`
+- [x] Publish to npm as `@chousyn/opencode-alert`
 
 ## Phase 2 — Webhook & Multi-channel (v0.2.0)
 
