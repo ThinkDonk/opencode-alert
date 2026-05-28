@@ -85,8 +85,6 @@ describe("loadConfig", () => {
     expect(config.desktop.enabled).toBe(true);
     expect(config.filter.quietHours.enabled).toBe(false);
     expect(config.filter.minInterval).toBe(5);
-    expect(config.filter.skipOnFocus).toBe(false);
-    expect(config.filter.skipIfCurrentSession).toBe(true);
   });
 
   it("project config overrides defaults", () => {
@@ -111,13 +109,7 @@ describe("loadConfig", () => {
       configPath,
       `{
   // This is a comment
-  "enabled": false,
-  "filter": {
-    "skipOnFocus": true
-    /*
-      Multi-line comment
-    */
-  }
+  "enabled": false
 }`,
       "utf-8",
     );

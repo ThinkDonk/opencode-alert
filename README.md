@@ -67,7 +67,6 @@ Create `~/.config/opencode/alert.jsonc` (global) or `.opencode/alert.jsonc` (pro
 
   // Smart filtering
   "filter": {
-    "skipOnFocus": true,
     "quietHours": {
       "enabled": false,
       "start": "22:00",

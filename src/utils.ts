@@ -1,4 +1,3 @@
-import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -41,98 +40,6 @@ export function resetThrottleState(): void {
   } catch {
     // File may not exist
   }
-}
-
-export function isTerminalFocused(): boolean {
-  const platform = process.platform;
-  const ppid = process.ppid;
-
-  try {
-    if (platform === "darwin") {
-      const out = execSync(
-        "osascript -e 'tell application \"System Events\" to get name of first process whose frontmost is true'",
-        { encoding: "utf-8", timeout: 2000 },
-      ).trim();
-      const term = process.env.TERM_PROGRAM ?? "Terminal";
-      return out.toLowerCase().includes(term.toLowerCase());
-    }
-
-    if (platform === "linux") {
-      const out = execSync(
-        "xdotool getactivewindow getwindowpid 2>/dev/null || echo 0",
-        { encoding: "utf-8", timeout: 2000 },
-      ).trim();
-      const activePid = Number.parseInt(out, 10);
-      if (!activePid) return false;
-      let pid: number = ppid;
-      while (pid > 1) {
-        if (pid === activePid) return true;
-        const stat = execSync(`cat /proc/${pid}/stat 2>/dev/null || echo ""`, {
-          encoding: "utf-8",
-          timeout: 1000,
-        }).trim();
-        if (!stat) break;
-        const ppidStr = stat.split(")")[1]?.trim().split(" ")[1];
-        if (!ppidStr) break;
-        pid = Number.parseInt(ppidStr, 10);
-      }
-      return false;
-    }
-
-    if (platform === "win32") {
-      const script = [
-        "$ProgressPreference = 'SilentlyContinue'",
-        "$ErrorActionPreference = 'SilentlyContinue'",
-        'Add-Type @"',
-        "using System;",
-        "using System.Runtime.InteropServices;",
-        "public class W {",
-        '  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();',
-        '  [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();',
-        '  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);',
-        "}",
-        '"@',
-        "$cw = [W]::GetConsoleWindow()",
-        "$fg = [W]::GetForegroundWindow()",
-        "if ($cw -ne [IntPtr]::Zero -and $cw -eq $fg) { '1'; exit }",
-        "$fgPid = 0",
-        "[W]::GetWindowThreadProcessId($fg, [ref]$fgPid) | Out-Null",
-        "if ($fgPid -eq 0) { '0'; exit }",
-        `$$myPid = ${process.pid}`,
-        "$current = $myPid",
-        "while ($current -gt 1) {",
-        "  if ($current -eq $fgPid) { '1'; exit }",
-        '  $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$current" -EA 0',
-        "  if (-not $proc) { break }",
-        "  if ($proc.ParentProcessId -eq $current) { break }",
-        "  $current = $proc.ParentProcessId",
-        "}",
-        "$fgName = (Get-Process -Id $fgPid -EA 0).ProcessName",
-        "if ($fgName -in @('conhost','WindowsTerminal','Code','WezTerm-gui','Alacritty','mintty','Hyper')) {",
-        "  $cur = $myPid",
-        "  while ($cur -gt 1) {",
-        '    $p = Get-CimInstance Win32_Process -Filter "ProcessId=$cur" -EA 0',
-        "    if (-not $p) { break }",
-        "    $n = $p.Name -replace '\\.exe$',''",
-        "    if ($n -in @('cmd','powershell','pwsh','bash','zsh','nu','Code','Code Helper')) { '1'; exit }",
-        "    if ($p.ParentProcessId -eq $cur) { break }",
-        "    $cur = $p.ParentProcessId",
-        "  }",
-        "}",
-        "'0'",
-      ].join("\n");
-      const encoded = Buffer.from(script, "utf-16le").toString("base64");
-      const out = execSync(
-        `powershell -NoProfile -NonInteractive -NoLogo -EncodedCommand ${encoded}`,
-        { encoding: "utf-8", timeout: 5000, stdio: ["pipe", "pipe", "pipe"] },
-      ).trim();
-      return out === "1";
-    }
-  } catch {
-    // Detection is best-effort; assume not focused if we cannot determine
-  }
-
-  return false;
 }
 
 export function isInQuietHours(config: QuietHoursConfig): boolean {

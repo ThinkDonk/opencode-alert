@@ -3,38 +3,13 @@ import { sendDesktopNotification } from "./desktop.js";
 import type { AlertEvent, AlertEventType } from "./events.js";
 import { toAlertEvent } from "./events.js";
 import { playSound } from "./sound.js";
-import { isInQuietHours, isTerminalFocused, shouldThrottle } from "./utils.js";
-
-let currentSessionID: string | null = null;
+import { isInQuietHours, shouldThrottle } from "./utils.js";
 
 interface PluginContext {
   $: any;
   directory: string;
   worktree?: string;
   client: any;
-}
-
-export function updateCurrentSession(rawEvent: unknown): void {
-  const event = rawEvent as Record<string, unknown> | null;
-  if (!event) return;
-
-  if (event.type === "session.created") {
-    const info = (event.properties as Record<string, unknown>)?.info as Record<string, unknown> | undefined;
-    if (info?.id && !(info as any).parentID) {
-      currentSessionID = info.id as string;
-    }
-    return;
-  }
-
-  if (event.type === "message.updated") {
-    const info = (event.properties as Record<string, unknown>)?.info as Record<string, unknown> | undefined;
-    if (info?.role === "user" && info?.sessionID) {
-      const sessionID = info.sessionID as string;
-      if (sessionID !== "unknown") {
-        currentSessionID = sessionID;
-      }
-    }
-  }
 }
 
 export async function dispatch(
@@ -55,11 +30,6 @@ export async function dispatch(
   const { type, message } = alertEvent;
 
   if (isInQuietHours(config.filter.quietHours)) return;
-  if (config.filter.skipOnFocus && isTerminalFocused()) return;
-  if (config.filter.skipIfCurrentSession && alertEvent.type === "idle" && alertEvent.sessionID === currentSessionID) {
-    currentSessionID = null;
-    return;
-  }
   if (shouldThrottle(type, config.filter.minInterval)) return;
 
   const promises: Promise<void>[] = [];

@@ -67,7 +67,6 @@
 
   // 智能过滤
   "filter": {
-    "skipOnFocus": true,
     "quietHours": {
       "enabled": false,
       "start": "22:00",
