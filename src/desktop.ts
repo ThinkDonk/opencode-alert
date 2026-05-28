@@ -59,6 +59,12 @@ export async function sendDesktopNotification(
         const escapedMsg = shellEscape(message);
         const escapedTitle = shellEscape(`OpenCode ${TITLES[type]}`);
         await $`notify-send "${escapedTitle}" "${escapedMsg}"`.quiet();
+      } else if (platform === "win32") {
+        const psTitle = `OpenCode ${TITLES[type]}`
+          .replace(/'/g, "''")
+          .replace(/\n/g, " ");
+        const psMsg = message.replace(/'/g, "''").replace(/\n/g, " ");
+        await $`powershell -Command "Add-Type -AssemblyName System.Windows.Forms; $n = New-Object System.Windows.Forms.NotifyIcon; $n.Icon = [System.Drawing.SystemIcons]::Information; $n.BalloonTipTitle = '${psTitle}'; $n.BalloonTipText = '${psMsg}'; $n.Visible = $true; $n.ShowBalloonTip(5000); Start-Sleep -Milliseconds 6000; $n.Dispose()"`.quiet();
       }
     } catch {
       // Notification is best-effort, never block the plugin
