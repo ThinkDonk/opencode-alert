@@ -1,3 +1,5 @@
+import { spawn } from "node:child_process";
+
 function shellEscape(str: string): string {
   return str
     .replace(/\\/g, "\\\\")
@@ -23,6 +25,12 @@ export async function sendDesktopNotification(
   $?: ShellRunner,
 ): Promise<void> {
   const platform = process.platform;
+  console.error("[opencode-alert-debug] sendDesktopNotification called:", {
+    title,
+    message,
+    platform,
+    hasShell: !!$,
+  });
 
   try {
     if (!$) return;
@@ -36,9 +44,24 @@ export async function sendDesktopNotification(
       const escapedTitle = shellEscape(`OpenCode ${title}`);
       await $`notify-send "${escapedTitle}" "${escapedMsg}"`.quiet();
     } else if (platform === "win32") {
-      const escapedMsg = psEscape(message);
-      const toastBody = `OpenCode ${title}: ${escapedMsg}`;
-      await $`powershell -NoProfile -Command "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType = WindowsRuntime] | Out-Null; $template = '<toast><visual><binding template=\"ToastText01\"><text id=\"1\">${toastBody}</text></binding></visual></toast>'; $xml = New-Object Windows.Data.Xml.Dom.XmlDocument; $xml.LoadXml($template); $toast = [Windows.UI.Notifications.ToastNotification]::new($xml); [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('OpenCode').Show($toast)"`.quiet();
+      const escapedTitle = psEscape(`OpenCode ${title}`);
+      const escapedBody = psEscape(message);
+      const psScript = `
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType = WindowsRuntime] | Out-Null
+$template = '<toast><visual><binding template="ToastText02"><text id="1">${escapedTitle}</text><text id="2">${escapedBody}</text></binding></visual></toast>'
+$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+$xml.LoadXml($template)
+$toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('OpenCode').Show($toast)
+`.trim();
+      const child = spawn("powershell", ["-NoProfile", "-Command", psScript], {
+        detached: true,
+        stdio: "ignore",
+      });
+      child.unref();
     }
-  } catch {}
+  } catch (e) {
+    console.error("[opencode-alert-debug] sendDesktopNotification failed:", e);
+  }
 }
