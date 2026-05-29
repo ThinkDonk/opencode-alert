@@ -276,11 +276,13 @@ export async function dispatch(
   const title = EVENT_TITLES[type];
   const protocol = terminal?.protocol ?? null;
 
-  if (protocol && protocol !== "windows-toast") {
-    sendOSCNotification(title, message, protocol);
-  } else if (protocol === "windows-toast") {
+  if (protocol === "windows-toast") {
     sendWindowsToast(`OpenCode ${title}`, message);
-  } else if (
+  } else if (protocol) {
+    sendOSCNotification(title, message, protocol);
+  }
+
+  if (
     config.desktop.enabled &&
     config.desktop.events.includes(type as AlertEventType)
   ) {
