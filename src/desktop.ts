@@ -33,7 +33,7 @@ export async function sendDesktopNotification(
   });
 
   try {
-    if (!$) return;
+    if (platform !== "win32" && !$) return;
 
     if (platform === "darwin") {
       const escapedMsg = message.replace(/'/g, "'\"'\"'");
