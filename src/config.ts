@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { AlertEventType } from "./notify.js";
@@ -34,6 +34,7 @@ export interface AlertConfig {
   suppressWhenFocused: boolean;
   notifyOnIdle: boolean;
   notifyChildSessions: boolean;
+  soundCommand: string | null;
 }
 
 const DEFAULT_CONFIG: AlertConfig = {
@@ -66,6 +67,7 @@ const DEFAULT_CONFIG: AlertConfig = {
   suppressWhenFocused: true,
   notifyOnIdle: true,
   notifyChildSessions: true,
+  soundCommand: null,
 };
 
 export function stripJsonComments(str: string): string {
@@ -167,5 +169,75 @@ export function loadConfig(
     deepMerge(projectConfig, envConfig),
   );
 
+  const soundCmdEnv = process.env.OPENCODE_ALERT_SOUND_CMD;
+  if (soundCmdEnv !== undefined) {
+    const trimmed = soundCmdEnv.trim();
+    (merged as Record<string, unknown>).soundCommand =
+      trimmed.length > 0 ? trimmed : null;
+  } else if (
+    typeof (merged as Record<string, unknown>).soundCommand === "string"
+  ) {
+    const trimmed = (
+      (merged as Record<string, unknown>).soundCommand as string
+    ).trim();
+    (merged as Record<string, unknown>).soundCommand =
+      trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (!existsSync(globalPath)) {
+    try {
+      mkdirSync(join(homedir(), ".config", "opencode"), { recursive: true });
+      writeFileSync(globalPath, GENERATED_CONFIG_JSONC, "utf-8");
+    } catch {
+      // Auto-generation is best-effort
+    }
+  }
+
   return merged as AlertConfig;
 }
+
+const GENERATED_CONFIG_JSONC = `{
+  // Global toggle for the plugin
+  "enabled": true,
+  // Desktop notification settings
+  "desktop": {
+    "enabled": true,
+    // Which events trigger desktop notifications: idle, error, permission, question, cancel, subagent
+    "events": ["idle", "error", "permission", "question"]
+  },
+  // Sound notification settings
+  "sound": {
+    "enabled": true,
+    // Sound file per event type (built-in: ding.wav, alert.wav, ping.wav)
+    "events": {
+      "idle": "ding.wav",
+      "error": "alert.wav",
+      "permission": "ping.wav",
+      "question": "ping.wav",
+      "cancel": "alert.wav",
+      "subagent": "ding.wav"
+    },
+    "default": "ding.wav",
+    // Directory for custom sound files (leave empty for built-in sounds only)
+    "customDir": ""
+  },
+  // Filter settings
+  "filter": {
+    "quietHours": {
+      "enabled": false,
+      "start": "22:00",
+      "end": "08:00"
+    },
+    // Minimum seconds between same-type notifications
+    "minInterval": 5
+  },
+  // Suppress notifications when terminal is focused
+  "suppressWhenFocused": true,
+  // Send notification on session idle
+  "notifyOnIdle": true,
+  // Send notification when child sessions (subagents) complete
+  "notifyChildSessions": true,
+  // Custom shell command for sound playback (overrides platform-native). Use {sound} placeholder for the resolved sound file path
+  "soundCommand": null
+}
+`;

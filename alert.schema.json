@@ -25,6 +25,11 @@
       "default": true,
       "description": "Send notifications for subagent (child session) completion events"
     },
+    "soundCommand": {
+      "type": "string",
+      "default": null,
+      "description": "Custom shell command for sound playback. Use {sound} placeholder for the resolved sound file path"
+    },
     "desktop": {
       "type": "object",
       "properties": {

@@ -288,7 +288,7 @@ export async function dispatch(
   }
 
   if (config.sound.enabled) {
-    promises.push(playSound(type, config.sound, ctx.$));
+    promises.push(playSound(type, config.sound, ctx.$, config.soundCommand));
   }
 
   const results = await Promise.allSettled(promises);

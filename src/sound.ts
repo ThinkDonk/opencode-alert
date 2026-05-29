@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -46,9 +47,10 @@ export async function playSound(
   type: AlertEventType,
   config: SoundConfig,
   $?: TaggedShellRunner,
+  soundCommand?: string | null,
 ): Promise<void> {
   if (!config.enabled) return;
-  if (!$) return;
+  if (!$ && !soundCommand) return;
 
   const soundFile = config.events[type] || config.default;
   if (!soundFile) return;
@@ -57,6 +59,19 @@ export async function playSound(
   if (!soundPath) return;
 
   try {
+    if (soundCommand) {
+      const cmd = soundCommand.replace(/\{sound\}/g, soundPath);
+      const child = spawn(cmd, [], {
+        shell: true,
+        detached: true,
+        stdio: "ignore",
+      });
+      child.unref();
+      return;
+    }
+
+    if (!$) return;
+
     switch (PLATFORM) {
       case "darwin":
         await $`afplay "${shellEscape(soundPath)}"`.quiet();
