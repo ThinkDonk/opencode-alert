@@ -10,6 +10,21 @@
       "default": true,
       "description": "Global toggle for the plugin"
     },
+    "notifyOnIdle": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether to send notifications for idle (completion) events"
+    },
+    "suppressWhenFocused": {
+      "type": "boolean",
+      "default": true,
+      "description": "Suppress notifications when the terminal window is focused"
+    },
+    "notifyChildSessions": {
+      "type": "boolean",
+      "default": true,
+      "description": "Send notifications for subagent (child session) completion events"
+    },
     "desktop": {
       "type": "object",
       "properties": {
@@ -22,7 +37,14 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["idle", "error", "permission", "question"]
+            "enum": [
+              "idle",
+              "error",
+              "permission",
+              "question",
+              "cancel",
+              "subagent"
+            ]
           },
           "default": ["idle", "error", "permission", "question"],
           "description": "Which event types trigger desktop notifications"
@@ -44,7 +66,9 @@
             "idle": { "type": "string" },
             "error": { "type": "string" },
             "permission": { "type": "string" },
-            "question": { "type": "string" }
+            "question": { "type": "string" },
+            "cancel": { "type": "string" },
+            "subagent": { "type": "string" }
           },
           "additionalProperties": false,
           "description": "Sound file per event type"

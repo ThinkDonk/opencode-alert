@@ -33,6 +33,7 @@ export interface AlertConfig {
   filter: FilterConfig;
   suppressWhenFocused: boolean;
   notifyOnIdle: boolean;
+  notifyChildSessions: boolean;
 }
 
 const DEFAULT_CONFIG: AlertConfig = {
@@ -48,6 +49,8 @@ const DEFAULT_CONFIG: AlertConfig = {
       error: "alert.wav",
       permission: "ping.wav",
       question: "ping.wav",
+      cancel: "alert.wav",
+      subagent: "ding.wav",
     },
     default: "ding.wav",
     customDir: "",
@@ -62,6 +65,7 @@ const DEFAULT_CONFIG: AlertConfig = {
   },
   suppressWhenFocused: true,
   notifyOnIdle: true,
+  notifyChildSessions: true,
 };
 
 export function stripJsonComments(str: string): string {

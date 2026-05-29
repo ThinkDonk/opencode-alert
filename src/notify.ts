@@ -77,11 +77,13 @@ function recordDebounce(sessionID: string, eventType: string): void {
   }
 }
 
-const EVENT_TITLES: Record<AlertEventType, string> = {
+export const EVENT_TITLES: Record<AlertEventType, string> = {
   idle: "Task Completed",
   error: "Error Occurred",
   permission: "Permission Required",
   question: "Question",
+  cancel: "Cancelled",
+  subagent: "Subagent Done",
 };
 
 export function isInQuietHours(config: QuietHoursConfig): boolean {
@@ -113,7 +115,13 @@ export function shouldThrottle(
   return false;
 }
 
-export type AlertEventType = "idle" | "error" | "permission" | "question";
+export type AlertEventType =
+  | "idle"
+  | "error"
+  | "permission"
+  | "question"
+  | "cancel"
+  | "subagent";
 
 export interface AlertEvent {
   raw: unknown;
@@ -178,6 +186,40 @@ export function toAlertEvent(raw: unknown): AlertEvent | null {
         sessionTitle: "",
       };
     }
+    case "message.updated": {
+      const props = event.properties as Record<string, unknown> | undefined;
+      const err = props?.error as Record<string, unknown> | undefined;
+      if (err?.name === "MessageAbortedError") {
+        return {
+          raw,
+          type: "cancel",
+          sessionID,
+          message: "Message cancelled",
+          sessionTitle: "",
+        };
+      }
+      return null;
+    }
+    case "message.part.updated": {
+      const props = event.properties as Record<string, unknown> | undefined;
+      const part = props?.part as Record<string, unknown> | undefined;
+      const tool = part?.tool as Record<string, unknown> | undefined;
+      const state = part?.state as Record<string, unknown> | undefined;
+      if (tool?.name === "task" && state?.status === "completed") {
+        const content =
+          typeof part?.content === "string"
+            ? (part.content as string)
+            : undefined;
+        return {
+          raw,
+          type: "subagent",
+          sessionID,
+          message: content || "Subagent completed",
+          sessionTitle: "",
+        };
+      }
+      return null;
+    }
     default:
       return null;
   }
@@ -206,6 +248,17 @@ export async function dispatch(
     if (!shouldNotify) return;
   }
 
+  if (alertEvent.type === "subagent") {
+    if (!config.notifyChildSessions) return;
+    if (ctx.client) {
+      const isChild = await checkIsChildSession(
+        alertEvent.sessionID,
+        ctx.client,
+      );
+      if (!isChild) return;
+    }
+  }
+
   const { type, message, sessionID } = alertEvent;
 
   if (type === "idle" && !config.notifyOnIdle) return;
@@ -231,7 +284,7 @@ export async function dispatch(
     config.desktop.enabled &&
     config.desktop.events.includes(type as AlertEventType)
   ) {
-    promises.push(sendDesktopNotification(type, message, ctx.$));
+    promises.push(sendDesktopNotification(title, message, ctx.$));
   }
 
   if (config.sound.enabled) {
@@ -264,6 +317,18 @@ function isQuestionText(text: string): boolean {
     "could you",
   ];
   return questionStarters.some((s) => trimmed.startsWith(s));
+}
+
+async function checkIsChildSession(
+  sessionID: string,
+  client: any,
+): Promise<boolean> {
+  try {
+    const result = await client.session.get({ path: { id: sessionID } });
+    return !!result?.data?.parentID;
+  } catch {
+    return false;
+  }
 }
 
 async function enrichFromSession(
