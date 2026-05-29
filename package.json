@@ -1,6 +1,6 @@
 {
   "name": "@chousyn/opencode-alert",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Cross-platform notification plugin for OpenCode — desktop alerts, sound alerts, and webhook notifications with project-level configuration",
   "type": "module",
   "main": "./index.ts",
