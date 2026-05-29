@@ -25,12 +25,6 @@ export async function sendDesktopNotification(
   $?: ShellRunner,
 ): Promise<void> {
   const platform = process.platform;
-  console.error("[opencode-alert-debug] sendDesktopNotification called:", {
-    title,
-    message,
-    platform,
-    hasShell: !!$,
-  });
 
   try {
     if (platform !== "win32" && !$) return;
@@ -61,7 +55,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
       });
       child.unref();
     }
-  } catch (e) {
-    console.error("[opencode-alert-debug] sendDesktopNotification failed:", e);
+  } catch {
+    // Silently fail — notifications are best-effort
   }
 }

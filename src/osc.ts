@@ -113,20 +113,11 @@ export function sendOSCNotification(
 }
 
 export function sendWindowsToast(title: string, body: string): void {
-  console.error("[opencode-alert-debug] sendWindowsToast called:", {
-    title,
-    body,
-  });
-
   const escapedTitle = title.replace(/'/g, "''");
   const escapedBody = body
     .replace(/'/g, "''")
     .replace(/</g, "")
     .replace(/>/g, "");
-
-  console.error(
-    "[opencode-alert-debug] About to try WinRT Toast via execSync...",
-  );
 
   try {
     const toastScript = `
@@ -143,13 +134,9 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
       timeout: 10000,
       stdio: ["ignore", "pipe", "pipe"],
     });
-    console.error("[opencode-alert-debug] Windows Toast succeeded");
     return;
-  } catch (e: any) {
-    console.error(
-      "[opencode-alert-debug] Windows Toast failed, trying BalloonTip:",
-      e.message,
-    );
+  } catch {
+    // Toast failed, fall through to BalloonTip
   }
 
   try {
@@ -169,8 +156,7 @@ $n.Dispose()
       timeout: 10000,
       stdio: ["ignore", "pipe", "pipe"],
     });
-    console.error("[opencode-alert-debug] BalloonTip succeeded");
-  } catch (e: any) {
-    console.error("[opencode-alert-debug] BalloonTip also failed:", e.message);
+  } catch {
+    // Silently fail — notifications are best-effort
   }
 }

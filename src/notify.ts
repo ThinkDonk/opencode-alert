@@ -238,38 +238,22 @@ export async function dispatch(
   ctx: PluginContext,
   terminal: TerminalInfo | null,
 ): Promise<void> {
-  console.error(
-    "[opencode-alert-debug] dispatch called, rawEvent type:",
-    (rawEvent as any)?.type,
-  );
   const alertEvent = toAlertEvent(rawEvent);
   if (!alertEvent) {
-    console.error("[opencode-alert-debug] toAlertEvent returned null");
     return;
   }
-  console.error("[opencode-alert-debug] alertEvent:", {
-    type: alertEvent.type,
-    sessionID: alertEvent.sessionID,
-    message: alertEvent.message,
-  });
   if (
     (alertEvent.type === "idle" || alertEvent.type === "permission") &&
     ctx.client
   ) {
     const shouldNotify = await enrichFromSession(alertEvent, ctx.client);
     if (!shouldNotify) {
-      console.error(
-        "[opencode-alert-debug] enrichFromSession returned false (child session)",
-      );
       return;
     }
   }
 
   if (alertEvent.type === "subagent") {
     if (!config.notifyChildSessions) {
-      console.error(
-        "[opencode-alert-debug] subagent skipped: notifyChildSessions=false",
-      );
       return;
     }
     if (ctx.client) {
@@ -278,9 +262,6 @@ export async function dispatch(
         ctx.client,
       );
       if (!isChild) {
-        console.error(
-          "[opencode-alert-debug] subagent skipped: not a child session",
-        );
         return;
       }
     }
@@ -289,37 +270,24 @@ export async function dispatch(
   const { type, message, sessionID } = alertEvent;
 
   if (type === "idle" && !config.notifyOnIdle) {
-    console.error("[opencode-alert-debug] idle skipped: notifyOnIdle=false");
     return;
   }
 
   if (type === "idle" && shouldSuppressIdleByDebounce(sessionID)) {
-    console.error("[opencode-alert-debug] idle skipped: debounce");
     return;
   }
   recordDebounce(sessionID, type);
 
   if (isInQuietHours(config.filter.quietHours)) {
-    console.error("[opencode-alert-debug] skipped: quiet hours");
     return;
   }
   if (shouldThrottle(type, config.filter.minInterval)) {
-    console.error("[opencode-alert-debug] skipped: throttle");
     return;
   }
 
   if (config.suppressWhenFocused && isTerminalFocused(terminal)) {
-    console.error("[opencode-alert-debug] skipped: terminal focused");
     return;
   }
-
-  console.error("[opencode-alert-debug] sending notification:", {
-    type,
-    message,
-    protocol: terminal?.protocol,
-    desktopEnabled: config.desktop.enabled,
-    soundEnabled: config.sound.enabled,
-  });
 
   const promises: Promise<void>[] = [];
   const title = EVENT_TITLES[type];
