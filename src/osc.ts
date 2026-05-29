@@ -112,22 +112,61 @@ export function sendOSCNotification(
   });
 }
 
-export function sendWindowsToast(title: string, body: string): void {
+function sendBalloonTip(title: string, body: string): void {
   const escapedTitle = title.replace(/'/g, "''");
   const escapedBody = body.replace(/'/g, "''");
-  const psScript = `\r
-[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null\r
-[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType = WindowsRuntime] | Out-Null\r
-$template = '<toast><visual><binding template="ToastText02"><text id="1">${escapedTitle}</text><text id="2">${escapedBody}</text></binding></visual></toast>'\r
-$xml = New-Object Windows.Data.Xml.Dom.XmlDocument\r
-$xml.LoadXml($template)\r
-$toast = [Windows.UI.Notifications.ToastNotification]::new($xml)\r
-[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('OpenCode').Show($toast)\r
-`;
-
+  const psScript = `
+Add-Type -AssemblyName System.Windows.Forms
+$n = New-Object System.Windows.Forms.NotifyIcon
+$n.Icon = [System.Drawing.SystemIcons]::Information
+$n.BalloonTipTitle = '${escapedTitle}'
+$n.BalloonTipText = '${escapedBody}'
+$n.Visible = $true
+$n.ShowBalloonTip(5000)
+Start-Sleep -Milliseconds 6000
+$n.Dispose()
+`.trim();
   const child = spawn("powershell", ["-NoProfile", "-Command", psScript], {
     detached: true,
     stdio: "ignore",
+  });
+  child.unref();
+}
+
+export function sendWindowsToast(title: string, body: string): void {
+  const escapedTitle = title.replace(/'/g, "''");
+  const escapedBody = body.replace(/'/g, "''");
+  const toastScript = `
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType = WindowsRuntime] | Out-Null
+$template = '<toast><visual><binding template="ToastText02"><text id="1">${escapedTitle}</text><text id="2">${escapedBody}</text></binding></visual></toast>'
+$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+$xml.LoadXml($template)
+$toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('OpenCode').Show($toast)
+`.trim();
+  const child = spawn("powershell", ["-NoProfile", "-Command", toastScript], {
+    detached: true,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  child.stderr?.on("data", (data: Buffer) => {
+    console.error(
+      "[opencode-alert-debug] Windows Toast stderr:",
+      data.toString(),
+    );
+  });
+  child.on("error", (err: Error) => {
+    console.error(
+      "[opencode-alert-debug] Windows Toast spawn error:",
+      err.message,
+    );
+    sendBalloonTip(title, body);
+  });
+  child.on("close", (code: number | null) => {
+    if (code !== 0) {
+      console.error("[opencode-alert-debug] Windows Toast exit code:", code);
+      sendBalloonTip(title, body);
+    }
   });
   child.unref();
 }
