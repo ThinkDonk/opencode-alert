@@ -31,6 +31,8 @@ export interface AlertConfig {
   desktop: DesktopConfig;
   sound: SoundConfig;
   filter: FilterConfig;
+  suppressWhenFocused: boolean;
+  notifyOnIdle: boolean;
 }
 
 const DEFAULT_CONFIG: AlertConfig = {
@@ -58,6 +60,8 @@ const DEFAULT_CONFIG: AlertConfig = {
     },
     minInterval: 5,
   },
+  suppressWhenFocused: true,
+  notifyOnIdle: true,
 };
 
 export function stripJsonComments(str: string): string {

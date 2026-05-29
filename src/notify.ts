@@ -3,7 +3,9 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { AlertConfig, QuietHoursConfig } from "./config.js";
 import { sendDesktopNotification } from "./desktop.js";
+import { sendOSCNotification, sendWindowsToast } from "./osc.js";
 import { playSound } from "./sound.js";
+import { type TerminalInfo, isTerminalFocused } from "./terminal.js";
 
 const THROTTLE_FILE = join(
   homedir(),
@@ -43,6 +45,44 @@ export function resetThrottleState(): void {
     // File may not exist
   }
 }
+
+const DEBOUNCE_MS = 3000;
+const MAX_DEBOUNCE_ENTRIES = 200;
+const debounceEntries = new Map<string, number>();
+const SPECIFIC_EVENTS = new Set(["error", "permission", "question"]);
+
+function shouldSuppressIdleByDebounce(sessionID: string): boolean {
+  const now = Date.now();
+  for (const eventType of SPECIFIC_EVENTS) {
+    const key = `${sessionID}:${eventType}`;
+    const ts = debounceEntries.get(key);
+    if (ts && now - ts < DEBOUNCE_MS) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function recordDebounce(sessionID: string, eventType: string): void {
+  const key = `${sessionID}:${eventType}`;
+  debounceEntries.set(key, Date.now());
+
+  if (debounceEntries.size > MAX_DEBOUNCE_ENTRIES) {
+    const cutoff = Date.now() - DEBOUNCE_MS;
+    for (const [k, v] of debounceEntries) {
+      if (v < cutoff) {
+        debounceEntries.delete(k);
+      }
+    }
+  }
+}
+
+const EVENT_TITLES: Record<AlertEventType, string> = {
+  idle: "Task Completed",
+  error: "Error Occurred",
+  permission: "Permission Required",
+  question: "Question",
+};
 
 export function isInQuietHours(config: QuietHoursConfig): boolean {
   if (!config.enabled) return false;
@@ -154,6 +194,7 @@ export async function dispatch(
   rawEvent: unknown,
   config: AlertConfig,
   ctx: PluginContext,
+  terminal: TerminalInfo | null,
 ): Promise<void> {
   const alertEvent = toAlertEvent(rawEvent);
   if (!alertEvent) return;
@@ -165,14 +206,28 @@ export async function dispatch(
     if (!shouldNotify) return;
   }
 
-  const { type, message } = alertEvent;
+  const { type, message, sessionID } = alertEvent;
+
+  if (type === "idle" && !config.notifyOnIdle) return;
+
+  if (type === "idle" && shouldSuppressIdleByDebounce(sessionID)) return;
+  recordDebounce(sessionID, type);
 
   if (isInQuietHours(config.filter.quietHours)) return;
   if (shouldThrottle(type, config.filter.minInterval)) return;
 
+  if (config.suppressWhenFocused && isTerminalFocused(terminal)) return;
+
   const promises: Promise<void>[] = [];
 
-  if (
+  const title = EVENT_TITLES[type];
+  const protocol = terminal?.protocol ?? null;
+
+  if (protocol && protocol !== "windows-toast") {
+    sendOSCNotification(title, message, protocol);
+  } else if (protocol === "windows-toast") {
+    sendWindowsToast(`OpenCode ${title}`, message);
+  } else if (
     config.desktop.enabled &&
     config.desktop.events.includes(type as AlertEventType)
   ) {

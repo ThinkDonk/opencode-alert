@@ -1,5 +1,6 @@
 import { loadConfig } from "./src/config.js";
 import { dispatch } from "./src/notify.js";
+import { detectTerminal } from "./src/terminal.js";
 
 interface PluginInitContext {
   project: unknown;
@@ -11,6 +12,7 @@ interface PluginInitContext {
 
 export default async function opencodeAlert(ctx: PluginInitContext) {
   const config = loadConfig(ctx.directory, ctx.worktree);
+  const terminal = detectTerminal();
 
   if (!config.enabled) {
     return {};
@@ -18,13 +20,14 @@ export default async function opencodeAlert(ctx: PluginInitContext) {
 
   return {
     event: async ({ event }: { event: unknown }) => {
-      await dispatch(event, config, ctx);
+      await dispatch(event, config, ctx, terminal);
     },
     "permission.ask": async (_input: unknown, _output: unknown) => {
       await dispatch(
         { type: "permission.updated", properties: _input },
         config,
         ctx,
+        terminal,
       );
     },
   };
