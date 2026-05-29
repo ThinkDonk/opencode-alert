@@ -1,9 +1,4 @@
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import type { AlertEventType } from "./events.js";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ICON_PATH = join(__dirname, "..", "icon.png");
+import type { AlertEventType } from "./notify.js";
 
 function shellEscape(str: string): string {
   return str
@@ -11,6 +6,10 @@ function shellEscape(str: string): string {
     .replace(/"/g, '\\"')
     .replace(/\$/g, "\\$")
     .replace(/`/g, "\\`");
+}
+
+function psEscape(str: string): string {
+  return str.replace(/'/g, "''").replace(/\n/g, " ");
 }
 
 const TITLES: Record<AlertEventType, string> = {
@@ -35,39 +34,22 @@ export async function sendDesktopNotification(
   const platform = process.platform;
 
   try {
-    const { default: notifier } = await import("node-notifier");
-    await new Promise<void>((resolve) => {
-      notifier.notify(
-        {
-          title: `OpenCode ${TITLES[type]}`,
-          message,
-          sound: false,
-          wait: false,
-          appIcon: ICON_PATH,
-        },
-        () => resolve(),
-      );
-    });
-  } catch {
     if (!$) return;
-    try {
-      if (platform === "darwin") {
-        const escapedMsg = message.replace(/'/g, "'\"'\"'");
-        const escapedTitle = TITLES[type].replace(/'/g, "'\"'\"'");
-        await $`osascript -e 'display notification "${escapedMsg}" with title "${escapedTitle}"'`.quiet();
-      } else if (platform === "linux") {
-        const escapedMsg = shellEscape(message);
-        const escapedTitle = shellEscape(`OpenCode ${TITLES[type]}`);
-        await $`notify-send "${escapedTitle}" "${escapedMsg}"`.quiet();
-      } else if (platform === "win32") {
-        const psTitle = `OpenCode ${TITLES[type]}`
-          .replace(/'/g, "''")
-          .replace(/\n/g, " ");
-        const psMsg = message.replace(/'/g, "''").replace(/\n/g, " ");
-        await $`powershell -Command "Add-Type -AssemblyName System.Windows.Forms; $n = New-Object System.Windows.Forms.NotifyIcon; $n.Icon = [System.Drawing.SystemIcons]::Information; $n.BalloonTipTitle = '${psTitle}'; $n.BalloonTipText = '${psMsg}'; $n.Visible = $true; $n.ShowBalloonTip(5000); Start-Sleep -Milliseconds 6000; $n.Dispose()"`.quiet();
-      }
-    } catch {
-      // Notification is best-effort, never block the plugin
+
+    if (platform === "darwin") {
+      const escapedMsg = message.replace(/'/g, "'\"'\"'");
+      const escapedTitle = TITLES[type].replace(/'/g, "'\"'\"'");
+      await $`osascript -e 'display notification "${escapedMsg}" with title "${escapedTitle}"'`.quiet();
+    } else if (platform === "linux") {
+      const escapedMsg = shellEscape(message);
+      const escapedTitle = shellEscape(`OpenCode ${TITLES[type]}`);
+      await $`notify-send "${escapedTitle}" "${escapedMsg}"`.quiet();
+    } else if (platform === "win32") {
+      const escapedMsg = psEscape(message);
+      const toastBody = `OpenCode ${TITLES[type]}: ${escapedMsg}`;
+      await $`powershell -NoProfile -Command "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType = WindowsRuntime] | Out-Null; $template = '<toast><visual><binding template=\"ToastText01\"><text id=\"1\">${toastBody}</text></binding></visual></toast>'; $xml = New-Object Windows.Data.Xml.Dom.XmlDocument; $xml.LoadXml($template); $toast = [Windows.UI.Notifications.ToastNotification]::new($xml); [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('OpenCode').Show($toast)"`.quiet();
     }
+  } catch {
+    // Notification is best-effort, never block the plugin
   }
 }

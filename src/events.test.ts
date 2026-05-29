@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toAlertEvent } from "./events.js";
+import { toAlertEvent } from "./notify.js";
 
 describe("toAlertEvent", () => {
   it("returns null for null input", () => {

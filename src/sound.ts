@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { SoundConfig } from "./config.js";
-import type { AlertEventType } from "./events.js";
+import type { AlertEventType } from "./notify.js";
 
 let __dirname: string;
 try {

@@ -3,22 +3,12 @@
   "version": "0.1.0",
   "description": "Cross-platform notification plugin for OpenCode — desktop alerts, sound alerts, and webhook notifications with project-level configuration",
   "type": "module",
-  "main": "./dist/index.js",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
-  },
-  "types": "./dist/index.d.ts",
-  "files": ["dist", "alert.schema.json", "sounds", "icon.png"],
+  "main": "./index.ts",
+  "files": ["index.ts", "src", "alert.schema.json", "sounds", "icon.png"],
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
     "test": "vitest run",
     "lint": "biome check .",
-    "lint:fix": "biome check --write .",
-    "prepublishOnly": "npm run build"
+    "lint:fix": "biome check --write ."
   },
   "keywords": [
     "opencode",
@@ -44,14 +34,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "peerDependencies": {
-    "node-notifier": "^10.0.1"
-  },
-  "peerDependenciesMeta": {
-    "node-notifier": { "optional": true }
-  },
   "devDependencies": {
-    "tsup": "^8.0.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0",
     "@biomejs/biome": "^1.9.0"

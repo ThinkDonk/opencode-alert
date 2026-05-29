@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { isInQuietHours, resetThrottleState, shouldThrottle } from "./utils.js";
+import {
+  isInQuietHours,
+  resetThrottleState,
+  shouldThrottle,
+} from "./notify.js";
 
 describe("isInQuietHours", () => {
   afterEach(() => {
