@@ -21,11 +21,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/opencode-alert/opencode-alert.git"
+    "url": "git+https://github.com/ZhouDate/opencode-alert.git"
   },
-  "homepage": "https://github.com/opencode-alert/opencode-alert#readme",
+  "homepage": "https://github.com/ZhouDate/opencode-alert#readme",
   "bugs": {
-    "url": "https://github.com/opencode-alert/opencode-alert/issues"
+    "url": "https://github.com/ZhouDate/opencode-alert/issues"
   },
   "license": "MIT",
   "engines": {
