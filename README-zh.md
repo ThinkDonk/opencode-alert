@@ -38,7 +38,7 @@
 
 ```json
 {
-  "plugin": ["@chousyn/opencode-alert@0.2.1"]
+  "plugin": ["@chousyn/opencode-alert@0.2.2"]
 }
 ```
 
