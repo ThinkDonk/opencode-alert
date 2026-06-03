@@ -359,7 +359,7 @@ async function enrichFromSession(
     const sessionResult = await client.session.get({
       path: { id: alertEvent.sessionID },
     });
-    if (sessionResult?.data?.parentID) {
+    if (sessionResult?.data?.parentID && alertEvent.type !== "permission") {
       return false;
     }
     if (sessionResult?.data?.title) {
@@ -388,7 +388,7 @@ async function enrichFromSession(
         .pop();
       if (lastAssistantMsg?.parts) {
         const text = extractTextFromParts(lastAssistantMsg.parts);
-        if (text && isQuestionText(text)) {
+        if (text && isQuestionText(text) && alertEvent.type !== "permission") {
           alertEvent.type = "question";
         }
       }
