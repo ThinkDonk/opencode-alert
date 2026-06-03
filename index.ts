@@ -22,13 +22,5 @@ export default async function opencodeAlert(ctx: PluginInitContext) {
     event: async ({ event }: { event: unknown }) => {
       await dispatch(event, config, ctx, terminal);
     },
-    "permission.ask": async (_input: unknown, _output: unknown) => {
-      await dispatch(
-        { type: "permission.updated", properties: _input },
-        config,
-        ctx,
-        terminal,
-      );
-    },
   };
 }

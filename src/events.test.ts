@@ -127,6 +127,103 @@ describe("toAlertEvent", () => {
     expect(result).toHaveProperty("message", "Permission required");
   });
 
+  it("handles permission.asked event with permission info", () => {
+    const raw = {
+      type: "permission.asked",
+      sessionID: "ses_123",
+      properties: {
+        id: "prm_456",
+        sessionID: "ses_123",
+        permission: {
+          title: "Edit file: src/utils.ts",
+          description: "Allow writing to src/utils.ts",
+        },
+      },
+    };
+    const result = toAlertEvent(raw);
+    expect(result).toMatchObject({
+      type: "permission",
+      sessionID: "ses_123",
+    });
+    expect(result).toHaveProperty(
+      "message",
+      "Edit file: src/utils.ts: Allow writing to src/utils.ts",
+    );
+  });
+
+  it("handles permission.asked event without permission details", () => {
+    const raw = {
+      type: "permission.asked",
+      sessionID: "ses_123",
+      properties: {
+        id: "prm_456",
+        sessionID: "ses_123",
+      },
+    };
+    const result = toAlertEvent(raw);
+    expect(result).toMatchObject({ type: "permission" });
+    expect(result).toHaveProperty("message", "Permission required");
+  });
+
+  it("handles question.asked event with header and question", () => {
+    const raw = {
+      type: "question.asked",
+      sessionID: "ses_123",
+      properties: {
+        id: "que_789",
+        sessionID: "ses_123",
+        questions: [
+          {
+            header: "Framework",
+            question: "Which framework do you want to use?",
+            options: [
+              { label: "React", description: "React framework" },
+              { label: "Vue", description: "Vue framework" },
+            ],
+          },
+        ],
+      },
+    };
+    const result = toAlertEvent(raw);
+    expect(result).toMatchObject({
+      type: "question",
+      sessionID: "ses_123",
+    });
+    expect(result).toHaveProperty(
+      "message",
+      "Framework: Which framework do you want to use?",
+    );
+  });
+
+  it("handles question.asked event without header falls back", () => {
+    const raw = {
+      type: "question.asked",
+      sessionID: "ses_123",
+      properties: {
+        id: "que_789",
+        sessionID: "ses_123",
+        questions: [{ question: "What should I do?" }],
+      },
+    };
+    const result = toAlertEvent(raw);
+    expect(result).toMatchObject({ type: "question" });
+    expect(result).toHaveProperty("message", "Question: What should I do?");
+  });
+
+  it("handles question.asked event without questions falls back", () => {
+    const raw = {
+      type: "question.asked",
+      sessionID: "ses_123",
+      properties: {
+        id: "que_789",
+        sessionID: "ses_123",
+      },
+    };
+    const result = toAlertEvent(raw);
+    expect(result).toMatchObject({ type: "question" });
+    expect(result).toHaveProperty("message", "Question");
+  });
+
   it("detects question event type from session.idle", () => {
     const raw = { type: "session.idle", sessionID: "abc" };
     const result = toAlertEvent(raw);

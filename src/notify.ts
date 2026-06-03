@@ -186,6 +186,39 @@ export function toAlertEvent(raw: unknown): AlertEvent | null {
         sessionTitle: "",
       };
     }
+    case "permission.asked": {
+      const props = event.properties as Record<string, unknown> | undefined;
+      const perm = props?.permission as Record<string, unknown> | undefined;
+      const description =
+        (perm?.description as string | undefined) ??
+        (props?.description as string | undefined) ??
+        (perm?.message as string | undefined);
+      const detail = description ? `: ${description}` : "";
+      return {
+        raw,
+        type: "permission",
+        sessionID,
+        message: `${(perm?.title as string | undefined) ?? "Permission required"}${detail}`,
+        sessionTitle: "",
+      };
+    }
+    case "question.asked": {
+      const props = event.properties as Record<string, unknown> | undefined;
+      const questions = props?.questions as
+        | Array<Record<string, unknown>>
+        | undefined;
+      const firstQ = questions?.[0];
+      const header = firstQ?.header as string | undefined;
+      const questionText = firstQ?.question as string | undefined;
+      const detail = questionText ? `: ${questionText}` : "";
+      return {
+        raw,
+        type: "question",
+        sessionID,
+        message: `${header ?? "Question"}${detail}`,
+        sessionTitle: "",
+      };
+    }
     case "message.updated": {
       const props = event.properties as Record<string, unknown> | undefined;
       const err = props?.error as Record<string, unknown> | undefined;
@@ -243,7 +276,9 @@ export async function dispatch(
     return;
   }
   if (
-    (alertEvent.type === "idle" || alertEvent.type === "permission") &&
+    (alertEvent.type === "idle" ||
+      alertEvent.type === "permission" ||
+      alertEvent.type === "question") &&
     ctx.client
   ) {
     const shouldNotify = await enrichFromSession(alertEvent, ctx.client);
@@ -319,26 +354,6 @@ export async function dispatch(
   }
 }
 
-function extractTextFromParts(parts: any[]): string {
-  return parts
-    .filter((p: any) => p.type === "text")
-    .map((p: any) => p.text ?? p.content ?? "")
-    .join(" ");
-}
-
-function isQuestionText(text: string): boolean {
-  const trimmed = text.trim().toLowerCase();
-  if (trimmed.endsWith("?")) return true;
-  const questionStarters = [
-    "would you",
-    "do you",
-    "should",
-    "can you",
-    "could you",
-  ];
-  return questionStarters.some((s) => trimmed.startsWith(s));
-}
-
 async function checkIsChildSession(
   sessionID: string,
   client: any,
@@ -359,7 +374,7 @@ async function enrichFromSession(
     const sessionResult = await client.session.get({
       path: { id: alertEvent.sessionID },
     });
-    if (sessionResult?.data?.parentID && alertEvent.type !== "permission") {
+    if (sessionResult?.data?.parentID && alertEvent.type === "idle") {
       return false;
     }
     if (sessionResult?.data?.title) {
@@ -375,29 +390,6 @@ async function enrichFromSession(
     }
   } catch (e) {
     console.error("[opencode-alert] enrichFromSession session.get failed:", e);
-  }
-
-  try {
-    const messagesResult = await client.session.messages({
-      path: { id: alertEvent.sessionID },
-    });
-    if (messagesResult?.data && Array.isArray(messagesResult.data)) {
-      const messages = messagesResult.data;
-      const lastAssistantMsg = messages
-        .filter((m: any) => m.info?.role === "assistant")
-        .pop();
-      if (lastAssistantMsg?.parts) {
-        const text = extractTextFromParts(lastAssistantMsg.parts);
-        if (text && isQuestionText(text) && alertEvent.type !== "permission") {
-          alertEvent.type = "question";
-        }
-      }
-    }
-  } catch (e) {
-    console.error(
-      "[opencode-alert] enrichFromSession session.messages failed:",
-      e,
-    );
   }
 
   return true;
