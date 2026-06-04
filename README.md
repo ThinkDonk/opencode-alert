@@ -38,7 +38,7 @@ Or pin a version:
 
 ```json
 {
-  "plugin": ["@chousyn/opencode-alert@0.2.2"]
+  "plugin": ["@chousyn/opencode-alert@0.2.3"]
 }
 ```
 
