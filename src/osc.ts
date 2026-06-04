@@ -121,6 +121,8 @@ export function sendWindowsToast(title: string, body: string): void {
 
   try {
     const toastScript = `
+Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class AppId { [DllImport("shell32.dll")] public static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string appID); }' -Language CSharp
+[AppId]::SetCurrentProcessExplicitAppUserModelID('OpenCode')
 [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
 [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType = WindowsRuntime] | Out-Null
 $template = '<toast><visual><binding template="ToastText02"><text id="1">${escapedTitle}</text><text id="2">${escapedBody}</text></binding></visual></toast>'
@@ -141,6 +143,8 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 
   try {
     const balloonScript = `
+Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class AppId { [DllImport("shell32.dll")] public static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string appID); }' -Language CSharp
+[AppId]::SetCurrentProcessExplicitAppUserModelID('OpenCode')
 Add-Type -AssemblyName System.Windows.Forms
 $n = New-Object System.Windows.Forms.NotifyIcon
 $n.Icon = [System.Drawing.SystemIcons]::Information
