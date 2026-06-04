@@ -379,6 +379,9 @@ async function enrichFromSession(
     }
     if (sessionResult?.data?.title) {
       const title = String(sessionResult.data.title);
+      if (title.toLowerCase().startsWith("new session")) {
+        return true;
+      }
       const truncated =
         title.length > 50 ? `${title.substring(0, 47)}...` : title;
       alertEvent.sessionTitle = truncated;
