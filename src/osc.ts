@@ -1,4 +1,4 @@
-import { execSync, spawn } from "node:child_process";
+import { execSync } from "node:child_process";
 import { close, open, write } from "node:fs";
 
 let counter = 0;
@@ -129,11 +129,11 @@ $xml.LoadXml($template)
 $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('OpenCode').Show($toast)
 `.trim();
-    const child = spawn("powershell", ["-NoProfile", "-Command", toastScript], {
-      detached: true,
-      stdio: "ignore",
+    execSync(toastScript, {
+      shell: "powershell",
+      timeout: 10000,
+      stdio: ["ignore", "pipe", "pipe"],
     });
-    child.unref();
     return;
   } catch {
     // Toast failed, fall through to BalloonTip
@@ -151,15 +151,11 @@ $n.ShowBalloonTip(5000)
 Start-Sleep -Milliseconds 6000
 $n.Dispose()
 `.trim();
-    const child = spawn(
-      "powershell",
-      ["-NoProfile", "-Command", balloonScript],
-      {
-        detached: true,
-        stdio: "ignore",
-      },
-    );
-    child.unref();
+    execSync(balloonScript, {
+      shell: "powershell",
+      timeout: 10000,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
   } catch {
     // Silently fail — notifications are best-effort
   }

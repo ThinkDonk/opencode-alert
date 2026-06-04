@@ -1,6 +1,7 @@
 import { loadConfig } from "./src/config.js";
 import { dispatch } from "./src/notify.js";
 import { detectTerminal } from "./src/terminal.js";
+import { ensureAumidRegistered } from "./src/win-aumid.js";
 
 interface PluginInitContext {
   project: unknown;
@@ -13,6 +14,8 @@ interface PluginInitContext {
 export default async function opencodeAlert(ctx: PluginInitContext) {
   const config = loadConfig(ctx.directory, ctx.worktree);
   const terminal = detectTerminal();
+
+  ensureAumidRegistered();
 
   if (!config.enabled) {
     return {};
