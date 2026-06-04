@@ -78,12 +78,12 @@ function recordDebounce(sessionID: string, eventType: string): void {
 }
 
 export const EVENT_TITLES: Record<AlertEventType, string> = {
-  idle: "Task Completed",
-  error: "Error Occurred",
-  permission: "Permission Required",
-  question: "Question",
-  cancel: "Cancelled",
-  subagent: "Subagent Done",
+  idle: "✅ Task Completed",
+  error: "❌ Error Occurred",
+  permission: "🔑 Permission Required",
+  question: "❓ Question",
+  cancel: "🚫 Cancelled",
+  subagent: "🤖 Subagent Done",
 };
 
 export function isInQuietHours(config: QuietHoursConfig): boolean {
