@@ -329,7 +329,7 @@ export async function dispatch(
   const protocol = terminal?.protocol ?? null;
 
   if (process.platform === "win32") {
-    sendWindowsToast(`OpenCode ${title}`, message);
+    sendWindowsToast(title, message);
   } else {
     if (protocol) {
       sendOSCNotification(title, message, protocol);

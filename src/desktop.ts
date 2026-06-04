@@ -35,10 +35,10 @@ export async function sendDesktopNotification(
       await $`osascript -e 'display notification "${escapedMsg}" with title "${escapedTitle}"'`.quiet();
     } else if (platform === "linux") {
       const escapedMsg = shellEscape(message);
-      const escapedTitle = shellEscape(`OpenCode ${title}`);
+      const escapedTitle = shellEscape(title);
       await $`notify-send "${escapedTitle}" "${escapedMsg}"`.quiet();
     } else if (platform === "win32") {
-      const escapedTitle = psEscape(`OpenCode ${title}`);
+      const escapedTitle = psEscape(title);
       const escapedBody = psEscape(message);
       const psScript = `
 [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
