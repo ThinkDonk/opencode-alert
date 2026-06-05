@@ -33,6 +33,7 @@ export interface AlertConfig {
   filter: FilterConfig;
   suppressWhenFocused: boolean;
   notifyOnIdle: boolean;
+  delayMs: Record<string, number>;
   notifyChildSessions: boolean;
   soundCommand: string | null;
 }
@@ -66,6 +67,14 @@ const DEFAULT_CONFIG: AlertConfig = {
   },
   suppressWhenFocused: true,
   notifyOnIdle: true,
+  delayMs: {
+    idle: 1500,
+    error: 500,
+    permission: 800,
+    question: 800,
+    cancel: 0,
+    subagent: 1000,
+  },
   notifyChildSessions: true,
   soundCommand: null,
 };
@@ -237,6 +246,16 @@ const GENERATED_CONFIG_JSONC = `{
   "notifyOnIdle": true,
   // Send notification when child sessions (subagents) complete
   "notifyChildSessions": true,
+  // Delay in milliseconds before sending notifications per event type (0 = no delay)
+  // Useful when notifications arrive before the TUI finishes rendering results
+  "delayMs": {
+    "idle": 1500,
+    "error": 500,
+    "permission": 800,
+    "question": 800,
+    "cancel": 0,
+    "subagent": 1000
+  },
   // Custom shell command for sound playback (overrides platform-native). Use {sound} placeholder for the resolved sound file path
   "soundCommand": null
 }

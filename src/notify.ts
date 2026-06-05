@@ -104,13 +104,15 @@ export function isInQuietHours(config: QuietHoursConfig): boolean {
 }
 
 export function shouldThrottle(
+  sessionID: string,
   eventType: string,
   minInterval: number,
 ): boolean {
+  const key = `${sessionID}:${eventType}`;
   const now = Date.now();
-  const last = lastNotification[eventType] ?? 0;
+  const last = lastNotification[key] ?? 0;
   if (now - last < minInterval * 1000) return true;
-  lastNotification[eventType] = now;
+  lastNotification[key] = now;
   saveThrottleState();
   return false;
 }
@@ -316,7 +318,7 @@ export async function dispatch(
   if (isInQuietHours(config.filter.quietHours)) {
     return;
   }
-  if (shouldThrottle(type, config.filter.minInterval)) {
+  if (shouldThrottle(sessionID, type, config.filter.minInterval)) {
     return;
   }
 
@@ -324,33 +326,44 @@ export async function dispatch(
     return;
   }
 
-  const promises: Promise<void>[] = [];
-  const title = EVENT_TITLES[type];
-  const protocol = terminal?.protocol ?? null;
+  const doNotify = async () => {
+    const promises: Promise<void>[] = [];
+    const title = EVENT_TITLES[type];
+    const protocol = terminal?.protocol ?? null;
 
-  if (process.platform === "win32") {
-    sendWindowsToast(title, message);
+    if (process.platform === "win32") {
+      sendWindowsToast(title, message);
+    } else {
+      if (protocol) {
+        sendOSCNotification(title, message, protocol);
+      }
+      if (
+        config.desktop.enabled &&
+        config.desktop.events.includes(type as AlertEventType)
+      ) {
+        promises.push(sendDesktopNotification(title, message, ctx.$));
+      }
+    }
+
+    if (config.sound.enabled) {
+      promises.push(playSound(type, config.sound, ctx.$, config.soundCommand));
+    }
+
+    const results = await Promise.allSettled(promises);
+    for (const result of results) {
+      if (result.status === "rejected") {
+        console.error("[opencode-alert] notification failed:", result.reason);
+      }
+    }
+  };
+
+  const delay = config.delayMs?.[type] ?? 0;
+  if (delay > 0) {
+    setTimeout(() => {
+      doNotify().catch(() => {});
+    }, delay);
   } else {
-    if (protocol) {
-      sendOSCNotification(title, message, protocol);
-    }
-    if (
-      config.desktop.enabled &&
-      config.desktop.events.includes(type as AlertEventType)
-    ) {
-      promises.push(sendDesktopNotification(title, message, ctx.$));
-    }
-  }
-
-  if (config.sound.enabled) {
-    promises.push(playSound(type, config.sound, ctx.$, config.soundCommand));
-  }
-
-  const results = await Promise.allSettled(promises);
-  for (const result of results) {
-    if (result.status === "rejected") {
-      console.error("[opencode-alert] notification failed:", result.reason);
-    }
+    await doNotify();
   }
 }
 

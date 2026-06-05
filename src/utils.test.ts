@@ -99,35 +99,35 @@ describe("shouldThrottle", () => {
   });
 
   it("returns false on first call", () => {
-    expect(shouldThrottle("first-call", 5)).toBe(false);
+    expect(shouldThrottle("test-session", "first-call", 5)).toBe(false);
   });
 
   it("returns true if called again within minInterval seconds", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T00:00:00"));
-    shouldThrottle("throttle-test", 5);
+    shouldThrottle("test-session", "throttle-test", 5);
     vi.setSystemTime(new Date("2024-01-01T00:00:02"));
-    expect(shouldThrottle("throttle-test", 5)).toBe(true);
+    expect(shouldThrottle("test-session", "throttle-test", 5)).toBe(true);
   });
 
   it("returns false after minInterval seconds have elapsed", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T00:00:00"));
-    shouldThrottle("elapsed-test", 5);
+    shouldThrottle("test-session", "elapsed-test", 5);
     vi.setSystemTime(new Date("2024-01-01T00:00:06"));
-    expect(shouldThrottle("elapsed-test", 5)).toBe(false);
+    expect(shouldThrottle("test-session", "elapsed-test", 5)).toBe(false);
   });
 
   it("different event types have independent throttle timers", () => {
-    shouldThrottle("type-a", 10);
-    expect(shouldThrottle("type-b", 10)).toBe(false);
+    shouldThrottle("test-session", "type-a", 10);
+    expect(shouldThrottle("test-session", "type-b", 10)).toBe(false);
   });
 
   it("allows call exactly at the interval boundary", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T00:00:00"));
-    shouldThrottle("boundary-test", 5);
+    shouldThrottle("test-session", "boundary-test", 5);
     vi.setSystemTime(new Date("2024-01-01T00:00:05"));
-    expect(shouldThrottle("boundary-test", 5)).toBe(false);
+    expect(shouldThrottle("test-session", "boundary-test", 5)).toBe(false);
   });
 });

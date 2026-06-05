@@ -15,6 +15,27 @@
       "default": true,
       "description": "Whether to send notifications for idle (completion) events"
     },
+    "delayMs": {
+      "type": "object",
+      "description": "Delay in milliseconds before sending notifications per event type. 0 means no delay. Useful when notifications arrive before the TUI finishes rendering results.",
+      "properties": {
+        "idle": { "type": "number", "minimum": 0 },
+        "error": { "type": "number", "minimum": 0 },
+        "permission": { "type": "number", "minimum": 0 },
+        "question": { "type": "number", "minimum": 0 },
+        "cancel": { "type": "number", "minimum": 0 },
+        "subagent": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false,
+      "default": {
+        "idle": 1500,
+        "error": 500,
+        "permission": 800,
+        "question": 800,
+        "cancel": 0,
+        "subagent": 1000
+      }
+    },
     "suppressWhenFocused": {
       "type": "boolean",
       "default": true,
