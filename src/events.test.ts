@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { toAlertEvent } from "./notify.js";
 
-describe("toAlertEvent", () => {
+describe("toAlertEvent - invalid inputs", () => {
   it("returns null for null input", () => {
     expect(toAlertEvent(null)).toBeNull();
   });
@@ -11,15 +11,33 @@ describe("toAlertEvent", () => {
   });
 
   it("returns null for unknown event type", () => {
-    expect(toAlertEvent({ type: "unknown.event" })).toBeNull();
+    expect(
+      toAlertEvent({
+        id: "evt_1",
+        type: "unknown.event",
+        data: { sessionID: "abc" },
+      }),
+    ).toBeNull();
   });
 
   it("returns null for event without type", () => {
-    expect(toAlertEvent({ sessionID: "abc" })).toBeNull();
+    expect(
+      toAlertEvent({ id: "evt_1", data: { sessionID: "abc" } }),
+    ).toBeNull();
   });
 
-  it("handles session.idle event", () => {
-    const raw = { type: "session.idle", sessionID: "abc" };
+  it("returns null for non-object input", () => {
+    expect(toAlertEvent("session.execution.succeeded")).toBeNull();
+  });
+});
+
+describe("toAlertEvent - session.execution.succeeded", () => {
+  it("maps to idle with default message", () => {
+    const raw = {
+      id: "evt_1",
+      type: "session.execution.succeeded",
+      data: { sessionID: "abc" },
+    };
     expect(toAlertEvent(raw)).toEqual({
       raw,
       type: "idle",
@@ -29,27 +47,19 @@ describe("toAlertEvent", () => {
     });
   });
 
-  it("handles session.error event", () => {
-    const raw = { type: "session.error", sessionID: "abc" };
-    expect(toAlertEvent(raw)).toEqual({
-      raw,
-      type: "error",
-      sessionID: "abc",
-      message: "Error occurred",
-      sessionTitle: "",
-    });
+  it("defaults sessionID to unknown when data is missing", () => {
+    expect(
+      toAlertEvent({ id: "evt_1", type: "session.execution.succeeded" }),
+    ).toMatchObject({ type: "idle", sessionID: "unknown" });
   });
+});
 
-  it("handles session.error with specific error message", () => {
+describe("toAlertEvent - session.execution.failed", () => {
+  it("string error passes through as message", () => {
     const raw = {
-      type: "session.error",
-      sessionID: "abc",
-      properties: {
-        error: {
-          name: "APIError",
-          data: { message: "Rate limit exceeded", statusCode: 429 },
-        },
-      },
+      id: "evt_1",
+      type: "session.execution.failed",
+      data: { sessionID: "abc", error: "Rate limit exceeded" },
     };
     expect(toAlertEvent(raw)).toMatchObject({
       type: "error",
@@ -58,15 +68,13 @@ describe("toAlertEvent", () => {
     });
   });
 
-  it("handles session.error with ProviderAuthError message", () => {
+  it("object error with message extracts message", () => {
     const raw = {
-      type: "session.error",
-      sessionID: "abc",
-      properties: {
-        error: {
-          name: "ProviderAuthError",
-          data: { providerID: "openai", message: "Invalid API key" },
-        },
+      id: "evt_1",
+      type: "session.execution.failed",
+      data: {
+        sessionID: "abc",
+        error: { name: "APIError", message: "Invalid API key" },
       },
     };
     expect(toAlertEvent(raw)).toMatchObject({
@@ -75,11 +83,11 @@ describe("toAlertEvent", () => {
     });
   });
 
-  it("handles session.error with missing error data falls back", () => {
+  it("object error without message falls back", () => {
     const raw = {
-      type: "session.error",
-      sessionID: "abc",
-      properties: { error: { name: "UnknownError" } },
+      id: "evt_1",
+      type: "session.execution.failed",
+      data: { sessionID: "abc", error: { name: "UnknownError" } },
     };
     expect(toAlertEvent(raw)).toMatchObject({
       type: "error",
@@ -87,192 +95,197 @@ describe("toAlertEvent", () => {
     });
   });
 
-  it("handles permission.updated event with title", () => {
+  it("missing error falls back", () => {
     const raw = {
-      type: "permission.updated",
-      sessionID: "abc",
-      properties: { title: "Edit file: src/utils.ts", type: "tool_call" },
+      id: "evt_1",
+      type: "session.execution.failed",
+      data: { sessionID: "abc" },
     };
-    const result = toAlertEvent(raw);
-    expect(result).toMatchObject({ type: "permission" });
-    expect(result).toHaveProperty("message", "Edit file: src/utils.ts");
-  });
-
-  it("handles permission.updated event without title falls back to type", () => {
-    const raw = {
-      type: "permission.updated",
-      sessionID: "abc",
-      properties: { type: "tool_call" },
-    };
-    const result = toAlertEvent(raw);
-    expect(result).toMatchObject({ type: "permission" });
-    expect(result).toHaveProperty("message", "tool_call");
-  });
-
-  it("handles permission.updated event without input.type shows unknown", () => {
-    const result = toAlertEvent({
-      type: "permission.updated",
-      sessionID: "abc",
+    expect(toAlertEvent(raw)).toMatchObject({
+      type: "error",
+      message: "Error occurred",
     });
-    expect(result).toHaveProperty("message", "Permission required");
+  });
+});
+
+describe("toAlertEvent - session.execution.interrupted", () => {
+  it("reason user maps to cancel", () => {
+    const raw = {
+      id: "evt_1",
+      type: "session.execution.interrupted",
+      data: { sessionID: "abc", reason: "user" },
+    };
+    expect(toAlertEvent(raw)).toEqual({
+      raw,
+      type: "cancel",
+      sessionID: "abc",
+      message: "Message cancelled",
+      sessionTitle: "",
+    });
   });
 
-  it("handles permission.updated event with empty input object shows unknown", () => {
+  it.each(["shutdown", "superseded", "inactivity"])(
+    "reason %s returns null",
+    (reason) => {
+      expect(
+        toAlertEvent({
+          id: "evt_1",
+          type: "session.execution.interrupted",
+          data: { sessionID: "abc", reason },
+        }),
+      ).toBeNull();
+    },
+  );
+
+  it("missing reason returns null", () => {
+    expect(
+      toAlertEvent({
+        id: "evt_1",
+        type: "session.execution.interrupted",
+        data: { sessionID: "abc" },
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("toAlertEvent - permission.asked", () => {
+  it("message takes priority over action and resources", () => {
     const raw = {
-      type: "permission.updated",
-      sessionID: "abc",
-      properties: {},
+      id: "evt_1",
+      type: "permission.asked",
+      data: {
+        sessionID: "ses_123",
+        action: "Bash",
+        resources: ["rm -rf /tmp/x"],
+        message: "Allow running rm -rf?",
+      },
     };
     const result = toAlertEvent(raw);
-    expect(result).toHaveProperty("message", "Permission required");
+    expect(result).toMatchObject({ type: "permission", sessionID: "ses_123" });
+    expect(result).toHaveProperty("message", "Allow running rm -rf?");
   });
 
-  it("handles permission.asked event with permission info", () => {
+  it("falls back to action + first resource", () => {
     const raw = {
+      id: "evt_1",
       type: "permission.asked",
-      sessionID: "ses_123",
-      properties: {
-        id: "prm_456",
+      data: {
         sessionID: "ses_123",
-        permission: {
-          title: "Edit file: src/utils.ts",
-          description: "Allow writing to src/utils.ts",
+        action: "Bash",
+        resources: ["rm -rf /tmp/x", "ls -la"],
+      },
+    };
+    expect(toAlertEvent(raw)).toHaveProperty("message", "Bash: rm -rf /tmp/x");
+  });
+
+  it("action without resources shows action only", () => {
+    const raw = {
+      id: "evt_1",
+      type: "permission.asked",
+      data: { sessionID: "ses_123", action: "edit", resources: [] },
+    };
+    expect(toAlertEvent(raw)).toHaveProperty("message", "edit");
+  });
+
+  it("no message/action/resource falls back to default", () => {
+    const raw = {
+      id: "evt_1",
+      type: "permission.asked",
+      data: { sessionID: "ses_123" },
+    };
+    const result = toAlertEvent(raw);
+    expect(result).toMatchObject({ type: "permission", sessionID: "ses_123" });
+    expect(result).toHaveProperty("message", "Permission required");
+  });
+});
+
+describe("toAlertEvent - form.created", () => {
+  it("uses form title and joined field titles", () => {
+    const raw = {
+      id: "evt_1",
+      type: "form.created",
+      data: {
+        form: {
+          id: "form_1",
+          sessionID: "ses_123",
+          title: "Confirm plan",
+          fields: [
+            {
+              key: "framework",
+              title: "Framework",
+              description: "Which one?",
+            },
+            { key: "package_manager", title: "Pkg manager" },
+          ],
         },
       },
     };
     const result = toAlertEvent(raw);
-    expect(result).toMatchObject({
-      type: "permission",
-      sessionID: "ses_123",
-    });
+    expect(result).toMatchObject({ type: "question", sessionID: "ses_123" });
     expect(result).toHaveProperty(
       "message",
-      "Edit file: src/utils.ts: Allow writing to src/utils.ts",
+      "Confirm plan: Framework, Pkg manager",
     );
   });
 
-  it("handles permission.asked event without permission details", () => {
+  it("fields without title fall back to key", () => {
     const raw = {
-      type: "permission.asked",
-      sessionID: "ses_123",
-      properties: {
-        id: "prm_456",
-        sessionID: "ses_123",
+      id: "evt_1",
+      type: "form.created",
+      data: {
+        form: {
+          id: "form_1",
+          sessionID: "ses_123",
+          title: "Setup",
+          fields: [{ key: "framework" }],
+        },
       },
     };
-    const result = toAlertEvent(raw);
-    expect(result).toMatchObject({ type: "permission" });
-    expect(result).toHaveProperty("message", "Permission required");
+    expect(toAlertEvent(raw)).toHaveProperty("message", "Setup: framework");
   });
 
-  it("handles question.asked event with header and question", () => {
+  it("sessionID comes from data.form.sessionID", () => {
     const raw = {
-      type: "question.asked",
-      sessionID: "ses_123",
-      properties: {
-        id: "que_789",
-        sessionID: "ses_123",
-        questions: [
-          {
-            header: "Framework",
-            question: "Which framework do you want to use?",
-            options: [
-              { label: "React", description: "React framework" },
-              { label: "Vue", description: "Vue framework" },
-            ],
-          },
-        ],
+      id: "evt_1",
+      type: "form.created",
+      data: {
+        form: {
+          id: "form_1",
+          sessionID: "form-session",
+          title: "T",
+          fields: [],
+        },
       },
     };
-    const result = toAlertEvent(raw);
-    expect(result).toMatchObject({
-      type: "question",
-      sessionID: "ses_123",
-    });
-    expect(result).toHaveProperty(
-      "message",
-      "Framework: Which framework do you want to use?",
-    );
+    expect(toAlertEvent(raw)).toHaveProperty("sessionID", "form-session");
   });
 
-  it("handles question.asked event without header falls back", () => {
-    const raw = {
-      type: "question.asked",
-      sessionID: "ses_123",
-      properties: {
-        id: "que_789",
-        sessionID: "ses_123",
-        questions: [{ question: "What should I do?" }],
-      },
-    };
-    const result = toAlertEvent(raw);
-    expect(result).toMatchObject({ type: "question" });
-    expect(result).toHaveProperty("message", "Question: What should I do?");
-  });
-
-  it("handles question.asked event without questions falls back", () => {
-    const raw = {
-      type: "question.asked",
-      sessionID: "ses_123",
-      properties: {
-        id: "que_789",
-        sessionID: "ses_123",
-      },
-    };
+  it("missing form falls back to Question", () => {
+    const raw = { id: "evt_1", type: "form.created", data: {} };
     const result = toAlertEvent(raw);
     expect(result).toMatchObject({ type: "question" });
     expect(result).toHaveProperty("message", "Question");
   });
+});
 
-  it("detects question event type from session.idle", () => {
-    const raw = { type: "session.idle", sessionID: "abc" };
-    const result = toAlertEvent(raw);
-    expect(result).toMatchObject({ type: "idle" });
+describe("toAlertEvent - sessionID extraction", () => {
+  it("extracts sessionID from data.sessionID", () => {
+    expect(
+      toAlertEvent({
+        id: "evt_1",
+        type: "session.execution.succeeded",
+        data: { sessionID: "direct-id" },
+      }),
+    ).toHaveProperty("sessionID", "direct-id");
   });
 
-  it("extracts sessionID from event.sessionID", () => {
-    const result = toAlertEvent({
-      type: "session.idle",
-      sessionID: "direct-id",
-    });
-    expect(result).toHaveProperty("sessionID", "direct-id");
-  });
-
-  it("extracts sessionID from event.properties.sessionID as fallback", () => {
-    const result = toAlertEvent({
-      type: "session.idle",
-      properties: { sessionID: "prop-id" },
-    });
-    expect(result).toHaveProperty("sessionID", "prop-id");
-  });
-
-  it("extracts sessionID from event.properties.info.id as second fallback", () => {
-    const result = toAlertEvent({
-      type: "session.idle",
-      properties: { info: { id: "info-id" } },
-    });
-    expect(result).toHaveProperty("sessionID", "info-id");
-  });
-
-  it("defaults sessionID to unknown when none found", () => {
-    const result = toAlertEvent({ type: "session.idle" });
-    expect(result).toHaveProperty("sessionID", "unknown");
-  });
-
-  it("prioritizes event.sessionID over properties.sessionID", () => {
-    const result = toAlertEvent({
-      type: "session.idle",
-      sessionID: "direct",
-      properties: { sessionID: "prop", info: { id: "info" } },
-    });
-    expect(result).toHaveProperty("sessionID", "direct");
-  });
-
-  it("prioritizes properties.sessionID over properties.info.id", () => {
-    const result = toAlertEvent({
-      type: "session.idle",
-      properties: { sessionID: "prop", info: { id: "info" } },
-    });
-    expect(result).toHaveProperty("sessionID", "prop");
+  it("defaults sessionID to unknown when data has none", () => {
+    expect(
+      toAlertEvent({
+        id: "evt_1",
+        type: "session.execution.succeeded",
+        data: {},
+      }),
+    ).toHaveProperty("sessionID", "unknown");
   });
 });

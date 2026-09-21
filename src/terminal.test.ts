@@ -134,7 +134,6 @@ describe("isTerminalFocused", () => {
       name: "Terminal",
       bundleID: "com.apple.Terminal",
       processName: null,
-      protocol: null,
     };
     expect(isTerminalFocused(appleTerm)).toBe(false);
   });

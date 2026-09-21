@@ -5,7 +5,6 @@ export interface TerminalInfo {
   name: string;
   bundleID: string | null;
   processName: string | null;
-  protocol: "osc777" | "osc9" | "osc99" | "windows-toast" | null;
 }
 
 const TERMINALS: TerminalInfo[] = [
@@ -14,56 +13,48 @@ const TERMINALS: TerminalInfo[] = [
     name: "Ghostty",
     bundleID: "com.mitchellh.ghostty",
     processName: "ghostty",
-    protocol: "osc777",
   },
   {
     key: "iterm2",
     name: "iTerm2",
     bundleID: "com.googlecode.iterm2",
     processName: "iTerm2",
-    protocol: "osc9",
   },
   {
     key: "wezterm",
     name: "WezTerm",
     bundleID: "com.github.wez.wezterm",
     processName: "wezterm-gui",
-    protocol: "osc777",
   },
   {
     key: "apple-terminal",
     name: "Terminal",
     bundleID: "com.apple.Terminal",
     processName: null,
-    protocol: null,
   },
   {
     key: "kitty",
     name: "Kitty",
     bundleID: "net.kovidgoyal.kitty",
     processName: "kitty",
-    protocol: "osc99",
   },
   {
     key: "alacritty",
     name: "Alacritty",
     bundleID: "org.alacritty",
     processName: "alacritty",
-    protocol: null,
   },
   {
     key: "hyper",
     name: "Hyper",
     bundleID: "co.zeit.hyper",
     processName: "hyper",
-    protocol: null,
   },
   {
     key: "windows-terminal",
     name: "Windows Terminal",
     bundleID: null,
     processName: "WindowsTerminal",
-    protocol: "windows-toast",
   },
 ];
 
@@ -176,28 +167,4 @@ function checkFocus(terminal: TerminalInfo): boolean {
     // Detection failed — return false (notification sends)
   }
   return false;
-}
-
-let cachedProtocol: string | null = null;
-
-export function detectProtocol(): string | null {
-  if (cachedProtocol !== null) return cachedProtocol;
-
-  let result: string | null = null;
-
-  if (process.env.WT_SESSION) {
-    result = "windows-toast";
-  } else if (process.env.KITTY_WINDOW_ID) {
-    result = "osc99";
-  } else if (
-    process.env.TERM_PROGRAM === "iTerm.app" ||
-    process.env.ITERM_SESSION_ID
-  ) {
-    result = "osc9";
-  } else {
-    result = "osc777";
-  }
-
-  cachedProtocol = result;
-  return result;
 }

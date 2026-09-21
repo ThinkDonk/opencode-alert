@@ -2,8 +2,7 @@ import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { AlertConfig, QuietHoursConfig } from "./config.js";
-import { sendDesktopNotification } from "./desktop.js";
-import { sendOSCNotification, sendWindowsToast } from "./osc.js";
+import { sendDesktopNotification, sendWindowsToast } from "./desktop.js";
 import { playSound } from "./sound.js";
 import { type TerminalInfo, isTerminalFocused } from "./terminal.js";
 
@@ -133,23 +132,75 @@ export interface AlertEvent {
   sessionTitle: string;
 }
 
-export function toAlertEvent(raw: unknown): AlertEvent | null {
-  const event = raw as Record<string, unknown> | null;
-  if (!event) return null;
+const TOOL_CALL_MAP_MAX = 500;
+const toolCallNames = new Map<string, string>();
 
+function recordToolCall(id: unknown, name: unknown): void {
+  if (typeof id !== "string" || typeof name !== "string") return;
+  if (toolCallNames.has(id)) {
+    toolCallNames.delete(id);
+  }
+  toolCallNames.set(id, name);
+  while (toolCallNames.size > TOOL_CALL_MAP_MAX) {
+    const oldest = toolCallNames.keys().next();
+    if (oldest.done) break;
+    toolCallNames.delete(oldest.value);
+  }
+}
+
+export function resetToolCallMap(): void {
+  toolCallNames.clear();
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function getString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function firstStringResource(value: unknown): string | undefined {
+  if (!Array.isArray(value)) return undefined;
+  for (const item of value) {
+    const resource = getString(item);
+    if (resource) return resource;
+  }
+  return undefined;
+}
+
+function buildPermissionMessage(
+  action: string | undefined,
+  resource: string | undefined,
+): string {
+  if (action && resource) return `${action}: ${resource}`;
+  if (action) return action;
+  return "Permission required";
+}
+
+function formFieldLabels(value: unknown): string {
+  if (!Array.isArray(value)) return "";
+  return value
+    .map((field) => {
+      const record = asRecord(field);
+      return getString(record?.title) ?? getString(record?.key) ?? "";
+    })
+    .filter(Boolean)
+    .join(", ");
+}
+
+export function toAlertEvent(raw: unknown): AlertEvent | null {
+  const event = asRecord(raw);
+  if (!event || typeof event.type !== "string") return null;
+
+  const data = asRecord(event.data);
+  const formData = asRecord(data?.form);
   const sessionID =
-    (event.sessionID as string) ??
-    ((event.properties as Record<string, unknown>)?.sessionID as string) ??
-    ((
-      (event.properties as Record<string, unknown>)?.info as Record<
-        string,
-        unknown
-      >
-    )?.id as string) ??
-    "unknown";
+    getString(formData?.sessionID) ?? getString(data?.sessionID) ?? "unknown";
 
   switch (event.type) {
-    case "session.idle":
+    case "session.execution.succeeded":
       return {
         raw,
         type: "idle",
@@ -157,114 +208,77 @@ export function toAlertEvent(raw: unknown): AlertEvent | null {
         message: "Task completed",
         sessionTitle: "",
       };
-    case "session.error": {
-      const err = (event.properties as Record<string, unknown>)?.error as
-        | Record<string, unknown>
-        | undefined;
-      const errMsg = (err?.data as Record<string, unknown>)?.message as
-        | string
-        | undefined;
+    case "session.execution.failed": {
+      const error = data?.error;
+      const message =
+        typeof error === "string"
+          ? error
+          : (getString(asRecord(error)?.message) ?? "Error occurred");
+      return { raw, type: "error", sessionID, message, sessionTitle: "" };
+    }
+    case "session.execution.interrupted":
+      if (data?.reason !== "user") return null;
       return {
         raw,
-        type: "error",
+        type: "cancel",
         sessionID,
-        message: errMsg ?? "Error occurred",
+        message: "Message cancelled",
         sessionTitle: "",
       };
-    }
-    case "permission.updated": {
-      const props = event.properties as Record<string, unknown> | undefined;
-      const title = props?.title as string | undefined;
-      const permType = props?.type as string | undefined;
-      const description = (props?.description ??
-        props?.message ??
-        props?.content) as string | undefined;
-      const detail = description ? `: ${description}` : "";
-      return {
-        raw,
-        type: "permission",
-        sessionID,
-        message: `${title ?? permType ?? "Permission required"}${detail}`,
-        sessionTitle: "",
-      };
-    }
     case "permission.asked": {
-      const props = event.properties as Record<string, unknown> | undefined;
-      const perm = props?.permission as Record<string, unknown> | undefined;
-      const description =
-        (perm?.description as string | undefined) ??
-        (props?.description as string | undefined) ??
-        (perm?.message as string | undefined);
-      const detail = description ? `: ${description}` : "";
-      return {
-        raw,
-        type: "permission",
-        sessionID,
-        message: `${(perm?.title as string | undefined) ?? "Permission required"}${detail}`,
-        sessionTitle: "",
-      };
+      const message =
+        getString(data?.message) ||
+        buildPermissionMessage(
+          getString(data?.action),
+          firstStringResource(data?.resources),
+        );
+      return { raw, type: "permission", sessionID, message, sessionTitle: "" };
     }
-    case "question.asked": {
-      const props = event.properties as Record<string, unknown> | undefined;
-      const questions = props?.questions as
-        | Array<Record<string, unknown>>
-        | undefined;
-      const firstQ = questions?.[0];
-      const header = firstQ?.header as string | undefined;
-      const questionText = firstQ?.question as string | undefined;
+    case "form.created": {
+      const title = getString(formData?.title);
+      const questionText = formFieldLabels(formData?.fields);
       const detail = questionText ? `: ${questionText}` : "";
       return {
         raw,
         type: "question",
         sessionID,
-        message: `${header ?? "Question"}${detail}`,
+        message: `${title ?? "Question"}${detail}`,
         sessionTitle: "",
       };
     }
-    case "message.updated": {
-      const props = event.properties as Record<string, unknown> | undefined;
-      const err = props?.error as Record<string, unknown> | undefined;
-      if (err?.name === "MessageAbortedError") {
-        return {
-          raw,
-          type: "cancel",
-          sessionID,
-          message: "Message cancelled",
-          sessionTitle: "",
-        };
-      }
+    case "session.tool.input.started": {
+      recordToolCall(data?.id, data?.name);
       return null;
     }
-    case "message.part.updated": {
-      const props = event.properties as Record<string, unknown> | undefined;
-      const part = props?.part as Record<string, unknown> | undefined;
-      const tool = part?.tool as Record<string, unknown> | undefined;
-      const state = part?.state as Record<string, unknown> | undefined;
-      if (tool?.name === "task" && state?.status === "completed") {
-        const content =
-          typeof part?.content === "string"
-            ? (part.content as string)
-            : undefined;
-        return {
-          raw,
-          type: "subagent",
-          sessionID,
-          message: content || "Subagent completed",
-          sessionTitle: "",
-        };
-      }
-      return null;
+    case "session.tool.success": {
+      const callID = getString(data?.id);
+      if (!callID) return null;
+      const toolName = toolCallNames.get(callID);
+      toolCallNames.delete(callID);
+      if (toolName !== "task") return null;
+      const content = getString(data?.content);
+      return {
+        raw,
+        type: "subagent",
+        sessionID,
+        message: content || "Subagent completed",
+        sessionTitle: "",
+      };
     }
     default:
       return null;
   }
 }
 
+interface SessionInfoLike {
+  parentID?: string;
+  title?: string;
+}
+
 interface PluginContext {
-  $: any;
-  directory: string;
-  worktree?: string;
-  client: any;
+  session?: {
+    get(args: { sessionID: string }): Promise<SessionInfoLike>;
+  };
 }
 
 export async function dispatch(
@@ -281,9 +295,9 @@ export async function dispatch(
     (alertEvent.type === "idle" ||
       alertEvent.type === "permission" ||
       alertEvent.type === "question") &&
-    ctx.client
+    ctx.session
   ) {
-    const shouldNotify = await enrichFromSession(alertEvent, ctx.client);
+    const shouldNotify = await enrichFromSession(alertEvent, ctx.session);
     if (!shouldNotify) {
       return;
     }
@@ -293,10 +307,10 @@ export async function dispatch(
     if (!config.notifyChildSessions) {
       return;
     }
-    if (ctx.client) {
+    if (ctx.session) {
       const isChild = await checkIsChildSession(
         alertEvent.sessionID,
-        ctx.client,
+        ctx.session,
       );
       if (!isChild) {
         return;
@@ -329,20 +343,11 @@ export async function dispatch(
   const doNotify = async () => {
     const promises: Promise<void>[] = [];
     const title = EVENT_TITLES[type];
-    const protocol = terminal?.protocol ?? null;
 
     if (process.platform === "win32") {
       sendWindowsToast(title, message);
-    } else {
-      if (protocol) {
-        sendOSCNotification(title, message, protocol);
-      }
-      if (
-        config.desktop.enabled &&
-        config.desktop.events.includes(type as AlertEventType)
-      ) {
-        promises.push(sendDesktopNotification(title, message));
-      }
+    } else if (config.desktop.enabled && config.desktop.events.includes(type)) {
+      promises.push(sendDesktopNotification(title, message));
     }
 
     if (config.sound.enabled) {
@@ -369,11 +374,11 @@ export async function dispatch(
 
 async function checkIsChildSession(
   sessionID: string,
-  client: any,
+  session: NonNullable<PluginContext["session"]>,
 ): Promise<boolean> {
   try {
-    const result = await client.session.get({ path: { id: sessionID } });
-    return !!result?.data?.parentID;
+    const info = await session.get({ sessionID });
+    return !!info?.parentID;
   } catch {
     return false;
   }
@@ -381,17 +386,15 @@ async function checkIsChildSession(
 
 async function enrichFromSession(
   alertEvent: AlertEvent,
-  client: any,
+  session: NonNullable<PluginContext["session"]>,
 ): Promise<boolean> {
   try {
-    const sessionResult = await client.session.get({
-      path: { id: alertEvent.sessionID },
-    });
-    if (sessionResult?.data?.parentID && alertEvent.type === "idle") {
+    const info = await session.get({ sessionID: alertEvent.sessionID });
+    if (info?.parentID && alertEvent.type === "idle") {
       return false;
     }
-    if (sessionResult?.data?.title) {
-      const title = String(sessionResult.data.title);
+    if (info?.title) {
+      const title = String(info.title);
       if (title.toLowerCase().startsWith("new session")) {
         return true;
       }
