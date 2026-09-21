@@ -14,14 +14,6 @@ try {
 
 const PLATFORM = process.platform;
 
-function shellEscape(str: string): string {
-  return str
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"')
-    .replace(/\$/g, "\\$")
-    .replace(/`/g, "\\`");
-}
-
 function psEscape(str: string): string {
   return str.replace(/'/g, "''").replace(/\$/g, "`$").replace(/`/g, "``");
 }
@@ -46,11 +38,9 @@ function resolveSoundPath(soundFile: string, customDir: string): string | null {
 export async function playSound(
   type: AlertEventType,
   config: SoundConfig,
-  $?: TaggedShellRunner,
   soundCommand?: string | null,
 ): Promise<void> {
   if (!config.enabled) return;
-  if (!$ && !soundCommand) return;
 
   const soundFile = config.events[type] || config.default;
   if (!soundFile) return;
@@ -70,21 +60,48 @@ export async function playSound(
       return;
     }
 
-    if (!$) return;
-
     switch (PLATFORM) {
-      case "darwin":
-        await $`afplay "${shellEscape(soundPath)}"`.quiet();
+      case "darwin": {
+        const child = spawn("afplay", [soundPath], {
+          detached: true,
+          stdio: "ignore",
+        });
+        child.unref();
         break;
-      case "linux":
-        await $`ffplay -nodisp -autoexit -loglevel quiet "${shellEscape(soundPath)}"`.quiet();
+      }
+      case "linux": {
+        const child = spawn(
+          "ffplay",
+          ["-nodisp", "-autoexit", "-loglevel", "quiet", soundPath],
+          { detached: true, stdio: "ignore" },
+        );
+        child.unref();
         break;
+      }
       case "win32": {
         const escaped = psEscape(soundPath);
         if (soundFile.endsWith(".wav")) {
-          await $`powershell -NoProfile -Command "(New-Object Media.SoundPlayer '${escaped}').PlaySync()"`.quiet();
+          const child = spawn(
+            "powershell",
+            [
+              "-NoProfile",
+              "-Command",
+              `(New-Object Media.SoundPlayer '${escaped}').PlaySync()`,
+            ],
+            { detached: true, stdio: "ignore" },
+          );
+          child.unref();
         } else {
-          await $`powershell -NoProfile -Command "Add-Type -AssemblyName presentationCore; (New-Object System.Windows.Media.MediaPlayer).Open('${escaped}'); Start-Sleep -Seconds 2"`.quiet();
+          const child = spawn(
+            "powershell",
+            [
+              "-NoProfile",
+              "-Command",
+              `Add-Type -AssemblyName presentationCore; (New-Object System.Windows.Media.MediaPlayer).Open('${escaped}'); Start-Sleep -Seconds 2`,
+            ],
+            { detached: true, stdio: "ignore" },
+          );
+          child.unref();
         }
         break;
       }
@@ -93,10 +110,3 @@ export async function playSound(
     // Sound is best-effort, never block the plugin
   }
 }
-
-type TaggedShellRunner = (
-  strings: TemplateStringsArray,
-  ...values: unknown[]
-) => Promise<{
-  quiet(): Promise<void>;
-}>;

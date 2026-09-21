@@ -1,42 +1,38 @@
 import { spawn } from "node:child_process";
 
-function shellEscape(str: string): string {
-  return str
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"')
-    .replace(/\$/g, "\\$")
-    .replace(/`/g, "\\`");
+function appleScriptEscape(str: string): string {
+  return str.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
 function psEscape(str: string): string {
   return str.replace(/'/g, "''").replace(/\n/g, " ");
 }
 
-type ShellRunner = (
-  strings: TemplateStringsArray,
-  ...values: unknown[]
-) => Promise<{
-  quiet(): Promise<void>;
-}>;
-
 export async function sendDesktopNotification(
   title: string,
   message: string,
-  $?: ShellRunner,
 ): Promise<void> {
   const platform = process.platform;
 
   try {
-    if (platform !== "win32" && !$) return;
-
     if (platform === "darwin") {
-      const escapedMsg = message.replace(/'/g, "'\"'\"'");
-      const escapedTitle = title.replace(/'/g, "'\"'\"'");
-      await $`osascript -e 'display notification "${escapedMsg}" with title "${escapedTitle}"'`.quiet();
+      const escapedMsg = appleScriptEscape(message);
+      const escapedTitle = appleScriptEscape(title);
+      const child = spawn(
+        "osascript",
+        [
+          "-e",
+          `display notification "${escapedMsg}" with title "${escapedTitle}"`,
+        ],
+        { detached: true, stdio: "ignore" },
+      );
+      child.unref();
     } else if (platform === "linux") {
-      const escapedMsg = shellEscape(message);
-      const escapedTitle = shellEscape(title);
-      await $`notify-send "${escapedTitle}" "${escapedMsg}"`.quiet();
+      const child = spawn("notify-send", [title, message], {
+        detached: true,
+        stdio: "ignore",
+      });
+      child.unref();
     } else if (platform === "win32") {
       const escapedTitle = psEscape(title);
       const escapedBody = psEscape(message);

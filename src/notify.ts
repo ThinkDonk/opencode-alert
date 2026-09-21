@@ -341,12 +341,12 @@ export async function dispatch(
         config.desktop.enabled &&
         config.desktop.events.includes(type as AlertEventType)
       ) {
-        promises.push(sendDesktopNotification(title, message, ctx.$));
+        promises.push(sendDesktopNotification(title, message));
       }
     }
 
     if (config.sound.enabled) {
-      promises.push(playSound(type, config.sound, ctx.$, config.soundCommand));
+      promises.push(playSound(type, config.sound, config.soundCommand));
     }
 
     const results = await Promise.allSettled(promises);
