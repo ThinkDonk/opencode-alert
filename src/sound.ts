@@ -55,6 +55,7 @@ export async function playSound(
         shell: true,
         detached: true,
         stdio: "ignore",
+        windowsHide: true,
       });
       child.unref();
       return;
@@ -65,6 +66,7 @@ export async function playSound(
         const child = spawn("afplay", [soundPath], {
           detached: true,
           stdio: "ignore",
+          windowsHide: true,
         });
         child.unref();
         break;
@@ -73,7 +75,7 @@ export async function playSound(
         const child = spawn(
           "ffplay",
           ["-nodisp", "-autoexit", "-loglevel", "quiet", soundPath],
-          { detached: true, stdio: "ignore" },
+          { detached: true, stdio: "ignore", windowsHide: true },
         );
         child.unref();
         break;
@@ -88,7 +90,7 @@ export async function playSound(
               "-Command",
               `(New-Object Media.SoundPlayer '${escaped}').PlaySync()`,
             ],
-            { detached: true, stdio: "ignore" },
+            { detached: true, stdio: "ignore", windowsHide: true },
           );
           child.unref();
         } else {
@@ -99,7 +101,7 @@ export async function playSound(
               "-Command",
               `Add-Type -AssemblyName presentationCore; (New-Object System.Windows.Media.MediaPlayer).Open('${escaped}'); Start-Sleep -Seconds 2`,
             ],
-            { detached: true, stdio: "ignore" },
+            { detached: true, stdio: "ignore", windowsHide: true },
           );
           child.unref();
         }

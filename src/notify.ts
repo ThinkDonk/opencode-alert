@@ -276,9 +276,38 @@ interface SessionInfoLike {
 }
 
 interface PluginContext {
+  location?: {
+    directory?: string;
+    workspaceID?: string;
+  };
   session?: {
     get(args: { sessionID: string }): Promise<SessionInfoLike>;
   };
+}
+
+function isOwnLocation(
+  rawEvent: unknown,
+  location: PluginContext["location"],
+): boolean {
+  if (!location) return true;
+  const envelope = asRecord(rawEvent);
+  const eventLocation = asRecord(envelope?.location);
+  if (!eventLocation) return true;
+  const eventDirectory = getString(eventLocation.directory);
+  const ownDirectory = getString(location.directory);
+  if (
+    eventDirectory !== undefined &&
+    ownDirectory !== undefined &&
+    eventDirectory !== ownDirectory
+  ) {
+    return false;
+  }
+  const eventWorkspace = getString(eventLocation.workspaceID);
+  const ownWorkspace = getString(location.workspaceID);
+  if (eventWorkspace !== undefined || ownWorkspace !== undefined) {
+    return eventWorkspace === ownWorkspace;
+  }
+  return true;
 }
 
 export async function dispatch(
@@ -287,6 +316,9 @@ export async function dispatch(
   ctx: PluginContext,
   terminal: TerminalInfo | null,
 ): Promise<void> {
+  if (!isOwnLocation(rawEvent, ctx.location)) {
+    return;
+  }
   const alertEvent = toAlertEvent(rawEvent);
   if (!alertEvent) {
     return;

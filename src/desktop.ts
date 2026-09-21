@@ -24,13 +24,14 @@ export async function sendDesktopNotification(
           "-e",
           `display notification "${escapedMsg}" with title "${escapedTitle}"`,
         ],
-        { detached: true, stdio: "ignore" },
+        { detached: true, stdio: "ignore", windowsHide: true },
       );
       child.unref();
     } else if (platform === "linux") {
       const child = spawn("notify-send", [title, message], {
         detached: true,
         stdio: "ignore",
+        windowsHide: true,
       });
       child.unref();
     } else if (platform === "win32") {
@@ -48,6 +49,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
       const child = spawn("powershell", ["-NoProfile", "-Command", psScript], {
         detached: true,
         stdio: "ignore",
+        windowsHide: true,
       });
       child.unref();
     }
@@ -79,6 +81,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
       shell: "powershell",
       timeout: 10000,
       stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
     });
     return;
   } catch {
@@ -103,6 +106,7 @@ $n.Dispose()
       shell: "powershell",
       timeout: 10000,
       stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
     });
   } catch {
     // Silently fail — notifications are best-effort

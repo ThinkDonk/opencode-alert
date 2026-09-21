@@ -29,6 +29,11 @@ Dedicated rewrite for OpenCode v2. This release drops support for OpenCode v1 â€
 
 - OSC escape-sequence terminal notifications â€” in-terminal alerts are handled by the opencode v2 TUI's built-in attention system
 
+### Fixed
+
+- Duplicate notifications when multiple opencode Locations (projects/worktrees) run in one server process: each plugin instance now self-filters subscribed events by the envelope `location` (directory + workspaceID) and ignores events belonging to other Locations
+- Console window flash on Windows: all child process invocations (`spawn`/`execSync` for PowerShell, reg, and platform notification commands) pass `windowsHide: true` so no console window is opened when opencode runs without one
+
 ## [0.2.4] - 2026-05-28
 
 ### Added

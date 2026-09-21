@@ -1,5 +1,24 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { resetToolCallMap, toAlertEvent } from "./notify.js";
+import { mkdtempSync } from "node:fs";
+import { join } from "node:path";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AlertConfig } from "./config.js";
+import { sendDesktopNotification, sendWindowsToast } from "./desktop.js";
+import { dispatch, resetToolCallMap, toAlertEvent } from "./notify.js";
+
+vi.mock("node:os", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:os")>();
+  const home = mkdtempSync(join(actual.tmpdir(), "opencode-alert-test-"));
+  return { ...actual, homedir: () => home };
+});
+
+vi.mock("./desktop.js", () => ({
+  sendDesktopNotification: vi.fn(async () => {}),
+  sendWindowsToast: vi.fn(() => {}),
+}));
+
+vi.mock("./sound.js", () => ({
+  playSound: vi.fn(async () => {}),
+}));
 
 function inputStarted(id: string, name: string) {
   return {
@@ -94,5 +113,117 @@ describe("toAlertEvent - tool flow", () => {
     expect(toAlertEvent(toolSuccess("fresh"))).toMatchObject({
       type: "subagent",
     });
+  });
+});
+
+function makeConfig(): AlertConfig {
+  return {
+    enabled: true,
+    desktop: {
+      enabled: true,
+      events: ["idle", "error", "permission", "question"],
+    },
+    sound: { enabled: false, events: {}, default: "", customDir: "" },
+    filter: {
+      quietHours: { enabled: false, start: "22:00", end: "08:00" },
+      minInterval: 0,
+    },
+    suppressWhenFocused: false,
+    notifyOnIdle: true,
+    delayMs: {},
+    notifyChildSessions: true,
+    soundCommand: null,
+  };
+}
+
+function executionEvent(
+  sessionID: string,
+  location?: { directory: string; workspaceID?: string },
+) {
+  return {
+    id: "evt_loc",
+    type: "session.execution.succeeded",
+    ...(location ? { location } : {}),
+    data: { sessionID },
+  };
+}
+
+describe("dispatch - location self-filter", () => {
+  const notified = () =>
+    vi.mocked(sendWindowsToast).mock.calls.length +
+      vi.mocked(sendDesktopNotification).mock.calls.length >
+    0;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("processes events matching own directory and workspaceID", async () => {
+    await dispatch(
+      executionEvent("ses_match", {
+        directory: "D:/proj",
+        workspaceID: "ws_1",
+      }),
+      makeConfig(),
+      { location: { directory: "D:/proj", workspaceID: "ws_1" } },
+      null,
+    );
+    expect(notified()).toBe(true);
+  });
+
+  it("skips events from a different directory", async () => {
+    await dispatch(
+      executionEvent("ses_other_dir", { directory: "D:/other" }),
+      makeConfig(),
+      { location: { directory: "D:/proj" } },
+      null,
+    );
+    expect(notified()).toBe(false);
+  });
+
+  it("skips events with a conflicting workspaceID", async () => {
+    await dispatch(
+      executionEvent("ses_ws_conflict", {
+        directory: "D:/proj",
+        workspaceID: "ws_2",
+      }),
+      makeConfig(),
+      { location: { directory: "D:/proj", workspaceID: "ws_1" } },
+      null,
+    );
+    expect(notified()).toBe(false);
+  });
+
+  it("skips events carrying a workspaceID when own location has none", async () => {
+    await dispatch(
+      executionEvent("ses_ws_one_sided", {
+        directory: "D:/proj",
+        workspaceID: "ws_1",
+      }),
+      makeConfig(),
+      { location: { directory: "D:/proj" } },
+      null,
+    );
+    expect(notified()).toBe(false);
+  });
+
+  it("processes events without a location envelope", async () => {
+    await dispatch(
+      executionEvent("ses_no_loc"),
+      makeConfig(),
+      { location: { directory: "D:/proj" } },
+      null,
+    );
+    expect(notified()).toBe(true);
+  });
+
+  it("processes everything when ctx has no location", async () => {
+    await dispatch(
+      executionEvent("ses_ctx_no_loc", { directory: "D:/other" }),
+      makeConfig(),
+      {},
+      null,
+    );
+    expect(notified()).toBe(true);
   });
 });

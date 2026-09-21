@@ -7,6 +7,10 @@ interface V2Event {
   id: string;
   type: string;
   created?: number;
+  location?: {
+    directory?: string;
+    workspaceID?: string;
+  };
   data: unknown;
 }
 
@@ -16,7 +20,7 @@ interface SessionInfoLike {
 }
 
 interface PluginContext {
-  location: { directory: string };
+  location: { directory: string; workspaceID?: string };
   event: {
     subscribe(opts?: { signal?: AbortSignal }): AsyncIterable<V2Event>;
   };
@@ -65,8 +69,9 @@ async function runLoop(
     } catch (e) {
       if (signal.aborted) break;
       console.error("[opencode-alert] event stream error:", e);
-      await delay(RESUBSCRIBE_DELAY_MS, signal);
     }
+    if (signal.aborted) break;
+    await delay(RESUBSCRIBE_DELAY_MS, signal);
   }
 }
 

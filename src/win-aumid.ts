@@ -19,6 +19,7 @@ function isAumidRegistered(): boolean {
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "ignore"],
       timeout: 3000,
+      windowsHide: true,
     });
     return true;
   } catch {
@@ -31,15 +32,16 @@ function registerAumid(iconPath: string): void {
     execSync(`reg add "${REG_KEY}" /ve /d "${AUMID}" /f`, {
       stdio: "ignore",
       timeout: 5000,
+      windowsHide: true,
     });
     execSync(
       `reg add "${REG_KEY}" /v DisplayName /t REG_EXPAND_SZ /d "OpenCode" /f`,
-      { stdio: "ignore", timeout: 5000 },
+      { stdio: "ignore", timeout: 5000, windowsHide: true },
     );
     if (existsSync(iconPath)) {
       execSync(
         `reg add "${REG_KEY}" /v IconUri /t REG_EXPAND_SZ /d "${iconPath}" /f`,
-        { stdio: "ignore", timeout: 5000 },
+        { stdio: "ignore", timeout: 5000, windowsHide: true },
       );
     }
   } catch {
