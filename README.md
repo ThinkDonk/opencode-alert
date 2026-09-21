@@ -168,6 +168,8 @@ npm run lint
 npx tsc --noEmit
 ```
 
+When running OpenCode v2 from source (e.g. `bun run packages/cli`), use bun >= 1.4 — older bun versions fail to load `file://` directory plugins due to an upstream host resolution issue.
+
 ## License
 
 MIT

@@ -168,6 +168,8 @@ npm run lint
 npx tsc --noEmit
 ```
 
+从源码运行 OpenCode v2（如 `bun run packages/cli`）时需 bun >= 1.4——旧版 bun 因上游宿主的模块解析问题无法加载 `file://` 目录插件。
+
 ## 开发路线
 
 详见 [ROADMAP.md](./ROADMAP.md)。
