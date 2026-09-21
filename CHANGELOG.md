@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-09-21
+
+Dedicated rewrite for OpenCode v2. This release drops support for OpenCode v1 — v1 users should stay on 0.2.x.
+
+### Added
+
+- Package `exports` field with `.` and `./server` entry points (opencode v2 resolves plugin entries in `pkg/server` → `pkg` order)
+- Per-event-type notification delay (`delayMs`) to let the TUI finish rendering first
+- Session-scoped throttle state persisted to `~/.config/opencode/alert-throttle.json`
+- Windows toast notifications with explicit AppUserModelID registration (`src/win-aumid.ts`)
+- Terminal detection and foreground focus suppression (`src/terminal.ts`)
+
+### Changed
+
+- Plugin definition migrated from the v1 hook-function export to the v2 contract: default export `{ id, setup(ctx) }` with duck-typed context validation, zero external dependencies
+- Event mapping fully remapped to v2 events: `session.execution.succeeded` → idle, `session.execution.failed` → error, `session.execution.interrupted` (reason=user) → cancel, `permission.asked` → permission, `form.created` → question, `session.tool.success` (task tool) → subagent; `session.tool.input.started` is recorded by call ID to associate tool names (Map capped at 500 entries, FIFO)
+- All shell invocations migrated from Bun's `$` API to `node:child_process` — the plugin no longer requires Bun
+- Session enrichment now uses the unwrapped v2 `ctx.session.get({ sessionID })` (`.title` / `.parentID`)
+- Metadata: version bumped to 2.0.0, description and README updated for v2 (webhook claims removed), README event table rewritten around v2 events
+
+### Removed
+
+- OSC escape-sequence terminal notifications — in-terminal alerts are handled by the opencode v2 TUI's built-in attention system
+
 ## [0.2.4] - 2026-05-28
 
 ### Added

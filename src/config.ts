@@ -132,7 +132,7 @@ function readJsonc(filePath: string): Record<string, unknown> | null {
   }
 }
 
-export function deepMerge<T extends Record<string, unknown>>(
+export function deepMerge<T extends object>(
   target: T,
   source: Record<string, unknown>,
 ): T {
@@ -178,19 +178,14 @@ export function loadConfig(
     deepMerge(projectConfig, envConfig),
   );
 
+  const mergedRecord = merged as unknown as Record<string, unknown>;
   const soundCmdEnv = process.env.OPENCODE_ALERT_SOUND_CMD;
   if (soundCmdEnv !== undefined) {
     const trimmed = soundCmdEnv.trim();
-    (merged as Record<string, unknown>).soundCommand =
-      trimmed.length > 0 ? trimmed : null;
-  } else if (
-    typeof (merged as Record<string, unknown>).soundCommand === "string"
-  ) {
-    const trimmed = (
-      (merged as Record<string, unknown>).soundCommand as string
-    ).trim();
-    (merged as Record<string, unknown>).soundCommand =
-      trimmed.length > 0 ? trimmed : null;
+    mergedRecord.soundCommand = trimmed.length > 0 ? trimmed : null;
+  } else if (typeof mergedRecord.soundCommand === "string") {
+    const trimmed = (mergedRecord.soundCommand as string).trim();
+    mergedRecord.soundCommand = trimmed.length > 0 ? trimmed : null;
   }
 
   if (!existsSync(globalPath)) {

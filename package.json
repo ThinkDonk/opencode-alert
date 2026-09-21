@@ -1,9 +1,13 @@
 {
   "name": "@chousyn/opencode-alert",
-  "version": "0.2.5",
-  "description": "Cross-platform notification plugin for OpenCode — desktop alerts, sound alerts, and webhook notifications with project-level configuration",
+  "version": "2.0.0",
+  "description": "Cross-platform notification plugin for OpenCode v2 — desktop alerts and sound alerts with project-level configuration",
   "type": "module",
   "main": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./server": "./index.ts"
+  },
   "files": ["index.ts", "src", "alert.schema.json", "sounds", "icon.png"],
   "scripts": {
     "test": "vitest run",
@@ -16,8 +20,7 @@
     "notification",
     "alert",
     "desktop-notification",
-    "sound",
-    "webhook"
+    "sound"
   ],
   "repository": {
     "type": "git",
@@ -35,6 +38,7 @@
     "access": "public"
   },
   "devDependencies": {
+    "@types/node": "^22",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0",
     "@biomejs/biome": "^1.9.0"

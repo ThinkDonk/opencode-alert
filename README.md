@@ -2,7 +2,7 @@
 
 # opencode-alert
 
-Cross-platform notification plugin for [OpenCode](https://opencode.ai) — desktop alerts, sound alerts, and webhook notifications with project-level configuration.
+Cross-platform notification plugin for [OpenCode](https://opencode.ai) v2 — desktop alerts and sound alerts with project-level configuration.
 
 ## Features
 
@@ -15,22 +15,32 @@ Cross-platform notification plugin for [OpenCode](https://opencode.ai) — deskt
 ## Tech Stack
 
 - **Runtime**: TypeScript (strict ESM), Node.js ≥18
-- **Build**: tsup
+- **Plugin format**: OpenCode v2 plugin (`{ id, setup }` default export, loaded as TS source — no build step)
 - **Test**: Vitest
 - **Lint**: Biome
-- **Desktop notifications**: node-notifier (optional peer dependency) with OS shell fallbacks
+- **Desktop notifications**: OS shell commands (osascript / notify-send / PowerShell toast with AUMID)
 - **Sound**: Platform-native commands (afplay / ffplay / PowerShell)
 - **Config**: JSONC with deep merge and JSON Schema validation
 
 ## Installation
 
-### npm (Recommended)
+OpenCode v2 resolves plugin entries in `pkg/server` → `pkg` order. This package's `exports` field provides both `.` and `./server` entry points pointing at the same TypeScript source.
 
-Add to your OpenCode config (`~/.config/opencode/opencode.json`):
+### Copy into project
+
+Copy or clone the plugin into your project's `.opencode/plugin/` directory (v2 requires the plugin target to be a directory):
+
+```bash
+git clone https://github.com/ThinkDonk/opencode-alert .opencode/plugin/opencode-alert
+```
+
+### npm package or local path
+
+Reference the package in the `plugins` array of your OpenCode config (`~/.config/opencode/opencode.json`):
 
 ```json
 {
-  "plugin": ["@chousyn/opencode-alert"]
+  "plugins": ["@chousyn/opencode-alert"]
 }
 ```
 
@@ -38,15 +48,15 @@ Or pin a version:
 
 ```json
 {
-  "plugin": ["@chousyn/opencode-alert@0.2.4"]
+  "plugins": ["@chousyn/opencode-alert@2.0.0"]
 }
 ```
 
-### Local Development
+Or use a local path:
 
 ```json
 {
-  "plugin": ["file:///path/to/opencode-alert"]
+  "plugins": ["file:///path/to/opencode-alert"]
 }
 ```
 
@@ -106,18 +116,29 @@ Project config overrides global config (deep merge).
 
 ## Events
 
-| Event | Trigger | Default Notification |
-|-------|---------|---------------------|
-| `idle` | AI task completed | Session title |
-| `error` | Session error | Error message |
-| `permission` | AI requests permission | Permission details |
-| `question` | AI asks a question | Session title |
+The plugin subscribes to OpenCode v2 events and maps them to internal alert types:
 
-## Platform Requirements
+| v2 Event | Internal Alert | Trigger | Data Used |
+|----------|----------------|---------|-----------|
+| `session.execution.succeeded` | `idle` — Task Completed | AI turn finished | `sessionID` |
+| `session.execution.failed` | `error` — Error Occurred | Execution error | `sessionID`, `error` |
+| `session.execution.interrupted` | `cancel` — Cancelled | User interruption only (`reason === "user"`) | `sessionID`, `reason` |
+| `permission.asked` | `permission` — Permission Required | Permission request | `message`, or `action` + `resources` |
+| `form.created` | `question` — Question | Form prompt raised | `form.title`, `form.fields` |
+| `session.tool.input.started` | — (recorded) | Tool call started; name recorded by call ID | `id`, `name` |
+| `session.tool.success` | `subagent` — Subagent Done | `task` tool completion, matched via call ID | `id`, `content` |
+
+## Relationship with TUI Notifications
+
+OpenCode v2's TUI ships built-in notifications (configurable via the `attention` settings in `tui.json`). This plugin is complementary: it runs in the server process and delivers system-level desktop notifications and sounds, so alerts still fire when the TUI is closed or unfocused.
+
+## Requirements
+
+- **OpenCode**: v2 or later. OpenCode v1 users should stay on 0.2.x — 2.0.0 is a breaking major release targeting the v2 plugin API.
 
 ### Desktop Notifications
 
-- **Windows**: No additional setup (uses SnoreToast via node-notifier)
+- **Windows**: No additional setup (PowerShell toast, AUMID auto-registered)
 - **macOS**: No additional setup (uses Notification Center)
 - **Linux**: Requires `notify-send` (install: `sudo apt install libnotify-bin`)
 
@@ -133,8 +154,7 @@ Project config overrides global config (deep merge).
 |---------|---------------|-----------------|---------------------|
 | Windows | Yes | Yes | No |
 | Custom sounds | All platforms | macOS only | All platforms |
-| Webhook | Planned | No | No |
-| Project config | Planned | No | No |
+| Project config | Yes | No | No |
 | Quiet hours | Yes | Yes | No |
 | Toggle enabled | Yes | No (uninstall) | Yes |
 | npm published | Yes | No (OCX) | No (manual) |
@@ -143,9 +163,9 @@ Project config overrides global config (deep merge).
 
 ```bash
 npm install
-npm run build
 npm test
 npm run lint
+npx tsc --noEmit
 ```
 
 ## License
