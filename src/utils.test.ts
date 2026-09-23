@@ -1,9 +1,17 @@
+import { mkdtempSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   isInQuietHours,
   resetThrottleState,
   shouldThrottle,
 } from "./notify.js";
+
+vi.mock("node:os", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:os")>();
+  const home = mkdtempSync(join(actual.tmpdir(), "opencode-alert-utils-test-"));
+  return { ...actual, homedir: () => home };
+});
 
 describe("isInQuietHours", () => {
   afterEach(() => {

@@ -10,6 +10,6 @@
     "rootDir": ".",
     "resolveJsonModule": true
   },
-  "include": ["index.ts", "src/**/*.ts"],
+  "include": ["index.ts", "tui.ts", "src/**/*.ts"],
   "exclude": ["node_modules"]
 }

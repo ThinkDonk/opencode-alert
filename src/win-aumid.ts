@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,46 +13,66 @@ try {
   __dirname = ".";
 }
 
-function isAumidRegistered(): boolean {
-  try {
-    execSync(`reg query "${REG_KEY}" /v DisplayName`, {
-      encoding: "utf-8",
-      stdio: ["ignore", "pipe", "ignore"],
-      timeout: 3000,
-      windowsHide: true,
-    });
-    return true;
-  } catch {
-    return false;
-  }
+let registration: Promise<void> | undefined;
+
+function runReg(args: string[], timeout: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    try {
+      execFile("reg", args, { timeout, windowsHide: true }, (error) => {
+        resolve(!error);
+      });
+    } catch {
+      resolve(false);
+    }
+  });
 }
 
-function registerAumid(iconPath: string): void {
+async function registerAumid(): Promise<void> {
   try {
-    execSync(`reg add "${REG_KEY}" /ve /d "${AUMID}" /f`, {
-      stdio: "ignore",
-      timeout: 5000,
-      windowsHide: true,
-    });
-    execSync(
-      `reg add "${REG_KEY}" /v DisplayName /t REG_EXPAND_SZ /d "OpenCode" /f`,
-      { stdio: "ignore", timeout: 5000, windowsHide: true },
-    );
+    if (await runReg(["query", REG_KEY, "/v", "DisplayName"], 3000)) return;
+    if (!(await runReg(["add", REG_KEY, "/ve", "/d", AUMID, "/f"], 5000))) {
+      return;
+    }
+    if (
+      !(await runReg(
+        [
+          "add",
+          REG_KEY,
+          "/v",
+          "DisplayName",
+          "/t",
+          "REG_EXPAND_SZ",
+          "/d",
+          AUMID,
+          "/f",
+        ],
+        5000,
+      ))
+    ) {
+      return;
+    }
+    const iconPath = join(__dirname, "..", "icon.png");
     if (existsSync(iconPath)) {
-      execSync(
-        `reg add "${REG_KEY}" /v IconUri /t REG_EXPAND_SZ /d "${iconPath}" /f`,
-        { stdio: "ignore", timeout: 5000, windowsHide: true },
+      await runReg(
+        [
+          "add",
+          REG_KEY,
+          "/v",
+          "IconUri",
+          "/t",
+          "REG_EXPAND_SZ",
+          "/d",
+          iconPath,
+          "/f",
+        ],
+        5000,
       );
     }
-  } catch {
-    // Registration is best-effort
-  }
+  } catch {}
 }
 
-export function ensureAumidRegistered(): void {
+export async function ensureAumidRegistered(): Promise<void> {
   if (process.platform !== "win32") return;
-  if (isAumidRegistered()) return;
-
-  const iconPath = join(__dirname, "..", "icon.png");
-  registerAumid(iconPath);
+  registration ??= registerAumid();
+  await registration;
 }

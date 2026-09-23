@@ -1,4 +1,5 @@
-import { execSync, spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { ensureAumidRegistered } from "./win-aumid.js";
 
 function appleScriptEscape(str: string): string {
   return str.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -6,6 +7,21 @@ function appleScriptEscape(str: string): string {
 
 function psEscape(str: string): string {
   return str.replace(/'/g, "''").replace(/\n/g, " ");
+}
+
+function runPowerShell(script: string, signal?: AbortSignal): Promise<boolean> {
+  return new Promise((resolve) => {
+    try {
+      execFile(
+        "powershell",
+        ["-NoProfile", "-NonInteractive", "-Command", script],
+        { timeout: 10000, windowsHide: true, ...(signal ? { signal } : {}) },
+        (error) => resolve(!error),
+      );
+    } catch {
+      resolve(false);
+    }
+  });
 }
 
 export async function sendDesktopNotification(
@@ -26,6 +42,7 @@ export async function sendDesktopNotification(
         ],
         { detached: true, stdio: "ignore", windowsHide: true },
       );
+      child.on("error", () => {});
       child.unref();
     } else if (platform === "linux") {
       const child = spawn("notify-send", [title, message], {
@@ -33,6 +50,7 @@ export async function sendDesktopNotification(
         stdio: "ignore",
         windowsHide: true,
       });
+      child.on("error", () => {});
       child.unref();
     } else if (platform === "win32") {
       const escapedTitle = psEscape(title);
@@ -51,22 +69,28 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         stdio: "ignore",
         windowsHide: true,
       });
+      child.on("error", () => {});
       child.unref();
     }
-  } catch {
-    // Silently fail — notifications are best-effort
-  }
+  } catch {}
 }
 
-export function sendWindowsToast(title: string, body: string): void {
+export async function sendWindowsToast(
+  title: string,
+  body: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (signal?.aborted) return;
+  await ensureAumidRegistered();
+  if (signal?.aborted) return;
   const escapedTitle = title.replace(/'/g, "''");
   const escapedBody = body
     .replace(/'/g, "''")
     .replace(/</g, "")
     .replace(/>/g, "");
 
-  try {
-    const toastScript = `
+  const toastScript = `
+$ErrorActionPreference = 'Stop'
 Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class AppId { [DllImport("shell32.dll")] public static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string appID); }' -Language CSharp
 [AppId]::SetCurrentProcessExplicitAppUserModelID('OpenCode')
 [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
@@ -77,19 +101,11 @@ $xml.LoadXml($template)
 $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('OpenCode').Show($toast)
 `.trim();
-    execSync(toastScript, {
-      shell: "powershell",
-      timeout: 10000,
-      stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true,
-    });
-    return;
-  } catch {
-    // Toast failed, fall through to BalloonTip
-  }
+  if (await runPowerShell(toastScript, signal)) return;
+  if (signal?.aborted) return;
 
-  try {
-    const balloonScript = `
+  const balloonScript = `
+$ErrorActionPreference = 'Stop'
 Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class AppId { [DllImport("shell32.dll")] public static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string appID); }' -Language CSharp
 [AppId]::SetCurrentProcessExplicitAppUserModelID('OpenCode')
 Add-Type -AssemblyName System.Windows.Forms
@@ -102,13 +118,5 @@ $n.ShowBalloonTip(5000)
 Start-Sleep -Milliseconds 6000
 $n.Dispose()
 `.trim();
-    execSync(balloonScript, {
-      shell: "powershell",
-      timeout: 10000,
-      stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true,
-    });
-  } catch {
-    // Silently fail — notifications are best-effort
-  }
+  await runPowerShell(balloonScript, signal);
 }

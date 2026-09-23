@@ -1,14 +1,22 @@
 {
   "name": "@chousyn/opencode-alert",
   "version": "2.0.0",
-  "description": "Cross-platform notification plugin for OpenCode v2 — desktop alerts and sound alerts with project-level configuration",
+  "description": "OpenCode v2 TUI notification plugin — desktop and sound alerts for sessions open in each window",
   "type": "module",
   "main": "./index.ts",
   "exports": {
     ".": "./index.ts",
-    "./server": "./index.ts"
+    "./server": "./index.ts",
+    "./tui": "./tui.ts"
   },
-  "files": ["index.ts", "src", "alert.schema.json", "sounds", "icon.png"],
+  "files": [
+    "index.ts",
+    "tui.ts",
+    "src",
+    "alert.schema.json",
+    "sounds",
+    "icon.png"
+  ],
   "scripts": {
     "test": "vitest run",
     "lint": "biome check .",

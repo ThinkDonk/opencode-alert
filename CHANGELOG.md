@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Run notifications in the TUI through `./tui` and a physical `tui.ts` entry. The server entry remains as an inactive compatibility shim for existing `opencode.json` references.
+- Scope alerts to each TUI's open root-session tabs, including inactive tabs; when tabs are disabled, use the current session page. Keep child-session permission and question alerts while filtering child completion alerts.
+- Load and cache configuration by session directory in the TUI. Track window focus using renderer events, allowing notifications while initial focus is unknown, without intercepting native `triggerNotification`.
+
+### Fixed
+
+- Deduplicate event IDs for 24 hours across TUI instances sharing writable storage, independently of the existing throttle, with bounded memory fallback when storage is unavailable.
+- Cancel delayed notifications on TUI/plugin cleanup and recheck open-session scope, renderer lifetime, and focus before sending.
+- Honor `desktop.enabled` and `desktop.events` on Windows while keeping sound settings independent.
+- Run Windows registration, Toast, and balloon fallback asynchronously to avoid blocking TUI rendering; cancel in-flight notification commands when the plugin stops.
+
+### Documentation
+
+- Document the unreleased local installation through `tui.json`, compatible server references, and the `.opencode/plugins/` discovery directory.
+- Explain how explicitly enabled TUI `attention` notifications or sounds can overlap with plugin alerts and how to disable those TUI channels without changing user configuration automatically.
+
 ## [2.0.0] - 2026-09-21
 
 Dedicated rewrite for OpenCode v2. This release drops support for OpenCode v1 — v1 users should stay on 0.2.x.

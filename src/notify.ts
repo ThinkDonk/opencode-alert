@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { AlertConfig, QuietHoursConfig } from "./config.js";
+import { claimEvent } from "./dedupe.js";
 import { sendDesktopNotification, sendWindowsToast } from "./desktop.js";
 import { playSound } from "./sound.js";
 import { type TerminalInfo, isTerminalFocused } from "./terminal.js";
@@ -107,13 +108,24 @@ export function shouldThrottle(
   eventType: string,
   minInterval: number,
 ): boolean {
-  const key = `${sessionID}:${eventType}`;
-  const now = Date.now();
-  const last = lastNotification[key] ?? 0;
-  if (now - last < minInterval * 1000) return true;
-  lastNotification[key] = now;
-  saveThrottleState();
+  if (isThrottled(sessionID, eventType, minInterval)) return true;
+  recordThrottle(sessionID, eventType);
   return false;
+}
+
+function isThrottled(
+  sessionID: string,
+  eventType: string,
+  minInterval: number,
+): boolean {
+  const key = `${sessionID}:${eventType}`;
+  const last = lastNotification[key] ?? 0;
+  return Date.now() - last < minInterval * 1000;
+}
+
+function recordThrottle(sessionID: string, eventType: string): void {
+  lastNotification[`${sessionID}:${eventType}`] = Date.now();
+  saveThrottleState();
 }
 
 export type AlertEventType =
@@ -135,16 +147,20 @@ export interface AlertEvent {
 const TOOL_CALL_MAP_MAX = 500;
 const toolCallNames = new Map<string, string>();
 
-function recordToolCall(id: unknown, name: unknown): void {
+function recordToolCall(
+  id: unknown,
+  name: unknown,
+  names: Map<string, string>,
+): void {
   if (typeof id !== "string" || typeof name !== "string") return;
-  if (toolCallNames.has(id)) {
-    toolCallNames.delete(id);
+  if (names.has(id)) {
+    names.delete(id);
   }
-  toolCallNames.set(id, name);
-  while (toolCallNames.size > TOOL_CALL_MAP_MAX) {
-    const oldest = toolCallNames.keys().next();
+  names.set(id, name);
+  while (names.size > TOOL_CALL_MAP_MAX) {
+    const oldest = names.keys().next();
     if (oldest.done) break;
-    toolCallNames.delete(oldest.value);
+    names.delete(oldest.value);
   }
 }
 
@@ -190,7 +206,10 @@ function formFieldLabels(value: unknown): string {
     .join(", ");
 }
 
-export function toAlertEvent(raw: unknown): AlertEvent | null {
+export function toAlertEvent(
+  raw: unknown,
+  names = toolCallNames,
+): AlertEvent | null {
   const event = asRecord(raw);
   if (!event || typeof event.type !== "string") return null;
 
@@ -247,14 +266,14 @@ export function toAlertEvent(raw: unknown): AlertEvent | null {
       };
     }
     case "session.tool.input.started": {
-      recordToolCall(data?.id, data?.name);
+      recordToolCall(data?.id, data?.name, names);
       return null;
     }
     case "session.tool.success": {
       const callID = getString(data?.id);
       if (!callID) return null;
-      const toolName = toolCallNames.get(callID);
-      toolCallNames.delete(callID);
+      const toolName = names.get(callID);
+      names.delete(callID);
       if (toolName !== "task") return null;
       const content = getString(data?.content);
       return {
@@ -273,6 +292,7 @@ export function toAlertEvent(raw: unknown): AlertEvent | null {
 interface SessionInfoLike {
   parentID?: string;
   title?: string;
+  location?: { directory?: string; workspaceID?: string };
 }
 
 interface PluginContext {
@@ -281,8 +301,11 @@ interface PluginContext {
     workspaceID?: string;
   };
   session?: {
-    get(args: { sessionID: string }): Promise<SessionInfoLike>;
+    get(args: { sessionID: string }): Promise<SessionInfoLike | undefined>;
   };
+  shouldNotify?: () => boolean;
+  isFocused?: () => boolean;
+  toolCallNames?: Map<string, string>;
 }
 
 function isOwnLocation(
@@ -315,42 +338,59 @@ export async function dispatch(
   config: AlertConfig,
   ctx: PluginContext,
   terminal: TerminalInfo | null,
+  signal?: AbortSignal,
 ): Promise<void> {
-  if (!isOwnLocation(rawEvent, ctx.location)) {
+  if (
+    signal?.aborted ||
+    !config.enabled ||
+    ctx.shouldNotify?.() === false ||
+    !isOwnLocation(rawEvent, ctx.location)
+  ) {
     return;
   }
-  const alertEvent = toAlertEvent(rawEvent);
+  const alertEvent = toAlertEvent(rawEvent, ctx.toolCallNames);
   if (!alertEvent) {
     return;
   }
-  if (
-    (alertEvent.type === "idle" ||
-      alertEvent.type === "permission" ||
-      alertEvent.type === "question") &&
-    ctx.session
-  ) {
-    const shouldNotify = await enrichFromSession(alertEvent, ctx.session);
-    if (!shouldNotify) {
-      return;
-    }
+  if (alertEvent.type === "subagent" && !config.notifyChildSessions) {
+    return;
   }
-
-  if (alertEvent.type === "subagent") {
-    if (!config.notifyChildSessions) {
-      return;
-    }
-    if (ctx.session) {
-      const isChild = await checkIsChildSession(
-        alertEvent.sessionID,
-        ctx.session,
-      );
-      if (!isChild) {
-        return;
-      }
-    }
+  const eventLocation = asRecord(asRecord(rawEvent)?.location);
+  const needsOwnership = !!ctx.location && !getString(eventLocation?.directory);
+  const needsEnrichment =
+    alertEvent.type === "idle" ||
+    alertEvent.type === "permission" ||
+    alertEvent.type === "question";
+  let info: SessionInfoLike | undefined;
+  if (
+    ctx.session &&
+    (needsOwnership || needsEnrichment || alertEvent.type === "subagent")
+  ) {
+    try {
+      info = await ctx.session.get({ sessionID: alertEvent.sessionID });
+    } catch {}
+    if (signal?.aborted) return;
+  }
+  if (
+    needsOwnership &&
+    (!info?.location?.directory ||
+      !isOwnLocation({ location: info.location }, ctx.location))
+  ) {
+    return;
+  }
+  if (needsEnrichment && info && !enrichFromSession(alertEvent, info)) {
+    return;
+  }
+  if (alertEvent.type === "subagent" && ctx.session && !info?.parentID) {
+    return;
   }
 
   const { type, message, sessionID } = alertEvent;
+  const desktopEnabled =
+    config.desktop.enabled && config.desktop.events.includes(type);
+  if (!desktopEnabled && !config.sound.enabled) {
+    return;
+  }
 
   if (type === "idle" && !config.notifyOnIdle) {
     return;
@@ -361,25 +401,28 @@ export async function dispatch(
   }
   recordDebounce(sessionID, type);
 
-  if (isInQuietHours(config.filter.quietHours)) {
-    return;
-  }
-  if (shouldThrottle(sessionID, type, config.filter.minInterval)) {
-    return;
-  }
-
-  if (config.suppressWhenFocused && isTerminalFocused(terminal)) {
-    return;
-  }
-
   const doNotify = async () => {
+    if (
+      signal?.aborted ||
+      ctx.shouldNotify?.() === false ||
+      isInQuietHours(config.filter.quietHours) ||
+      (config.suppressWhenFocused &&
+        (ctx.isFocused ? ctx.isFocused() : isTerminalFocused(terminal))) ||
+      isThrottled(sessionID, type, config.filter.minInterval)
+    ) {
+      return;
+    }
+    if (!claimEvent(getString(asRecord(rawEvent)?.id))) return;
+    recordThrottle(sessionID, type);
     const promises: Promise<void>[] = [];
     const title = EVENT_TITLES[type];
 
-    if (process.platform === "win32") {
-      sendWindowsToast(title, message);
-    } else if (config.desktop.enabled && config.desktop.events.includes(type)) {
-      promises.push(sendDesktopNotification(title, message));
+    if (desktopEnabled) {
+      if (process.platform === "win32") {
+        promises.push(sendWindowsToast(title, message, signal));
+      } else {
+        promises.push(sendDesktopNotification(title, message));
+      }
     }
 
     if (config.sound.enabled) {
@@ -396,52 +439,40 @@ export async function dispatch(
 
   const delay = config.delayMs?.[type] ?? 0;
   if (delay > 0) {
-    setTimeout(() => {
+    const cancel = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", cancel);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", cancel);
       doNotify().catch(() => {});
     }, delay);
+    signal?.addEventListener("abort", cancel, { once: true });
   } else {
     await doNotify();
   }
 }
 
-async function checkIsChildSession(
-  sessionID: string,
-  session: NonNullable<PluginContext["session"]>,
-): Promise<boolean> {
-  try {
-    const info = await session.get({ sessionID });
-    return !!info?.parentID;
-  } catch {
+function enrichFromSession(
+  alertEvent: AlertEvent,
+  info: SessionInfoLike,
+): boolean {
+  if (info?.parentID && alertEvent.type === "idle") {
     return false;
   }
-}
-
-async function enrichFromSession(
-  alertEvent: AlertEvent,
-  session: NonNullable<PluginContext["session"]>,
-): Promise<boolean> {
-  try {
-    const info = await session.get({ sessionID: alertEvent.sessionID });
-    if (info?.parentID && alertEvent.type === "idle") {
-      return false;
+  if (info?.title) {
+    const title = String(info.title);
+    if (title.toLowerCase().startsWith("new session")) {
+      return true;
     }
-    if (info?.title) {
-      const title = String(info.title);
-      if (title.toLowerCase().startsWith("new session")) {
-        return true;
-      }
-      const truncated =
-        title.length > 50 ? `${title.substring(0, 47)}...` : title;
-      alertEvent.sessionTitle = truncated;
-      if (alertEvent.type === "idle") {
-        alertEvent.message = truncated;
-      } else {
-        alertEvent.message = `${alertEvent.message} (${truncated})`;
-      }
+    const truncated =
+      title.length > 50 ? `${title.substring(0, 47)}...` : title;
+    alertEvent.sessionTitle = truncated;
+    if (alertEvent.type === "idle") {
+      alertEvent.message = truncated;
+    } else {
+      alertEvent.message = `${alertEvent.message} (${truncated})`;
     }
-  } catch (e) {
-    console.error("[opencode-alert] enrichFromSession session.get failed:", e);
   }
-
   return true;
 }

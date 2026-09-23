@@ -2,12 +2,13 @@
 
 # opencode-alert
 
-Cross-platform notification plugin for [OpenCode](https://opencode.ai) v2 — desktop alerts and sound alerts with project-level configuration.
+TUI notification plugin for [OpenCode](https://opencode.ai) v2 — desktop and sound alerts for sessions open in each window, with project-level configuration.
 
 ## Features
 
 - Desktop notifications (Windows Toast, macOS Notification Center, Linux notify-send)
 - Sound alerts with custom audio file support
+- Window-local session filtering, including inactive open tabs
 - Smart filtering: quiet hours, throttle
 - Project-level configuration with deep merge
 - Zero context pollution (no tools or prompts injected)
@@ -24,41 +25,25 @@ Cross-platform notification plugin for [OpenCode](https://opencode.ai) v2 — de
 
 ## Installation
 
-OpenCode v2 resolves plugin entries in `pkg/server` → `pkg` order. This package's `exports` field provides both `.` and `./server` entry points pointing at the same TypeScript source.
+The TUI migration described here is **Unreleased**. Use a local checkout containing these changes; the published 2.0.0 package does not include this migration.
 
-### Copy into project
+### Configure the TUI
 
-Copy or clone the plugin into your project's `.opencode/plugin/` directory (v2 requires the plugin target to be a directory):
-
-```bash
-git clone https://github.com/ThinkDonk/opencode-alert .opencode/plugin/opencode-alert
-```
-
-### npm package or local path
-
-Reference the package in the `plugins` array of your OpenCode config (`~/.config/opencode/opencode.json`):
-
-```json
-{
-  "plugins": ["@chousyn/opencode-alert"]
-}
-```
-
-Or pin a version:
-
-```json
-{
-  "plugins": ["@chousyn/opencode-alert@2.0.0"]
-}
-```
-
-Or use a local path:
+Add the local plugin directory to `plugins` in `tui.json` (for example, `~/.config/opencode/tui.json`):
 
 ```json
 {
   "plugins": ["file:///path/to/opencode-alert"]
 }
 ```
+
+On Windows, use a URL such as `file:///D:/projects/opencode-alert`. Reload the plugin or restart the TUI after updating the checkout.
+
+Existing `opencode.json` plugin references can remain: the server entry only registers the plugin so the TUI can discover its TUI feature; it does not subscribe to events or send notifications. Avoid adding duplicate references through several installation methods.
+
+### Project discovery and entry points
+
+Alternatively, copy this checkout into `.opencode/plugins/opencode-alert/` (plural `plugins`). Local discovery requires a plugin directory. The physical `tui.ts` file is the TUI entry; `index.ts` is the inactive server compatibility entry. Package exports provide `./tui` plus `.` and `./server`.
 
 ## Configuration
 
@@ -106,7 +91,9 @@ Create `~/.config/opencode/alert.jsonc` (global) or `.opencode/alert.jsonc` (pro
 3. `alert.jsonc` (project root)
 4. `~/.config/opencode/alert.jsonc` (global)
 
-Project config overrides global config (deep merge).
+Project config overrides global config (deep merge). The TUI loads configuration on this machine using the event session's directory. If session metadata is unavailable, it uses the TUI location or its default location. Configurations are cached per directory until plugin reload, so open tabs from different projects retain their own settings.
+
+With `suppressWhenFocused: true`, focus is tracked from this TUI renderer's `focus` and `blur` events. Before either event has arrived, focus is unknown and notifications are allowed as a best-effort fallback. The plugin does not inspect other terminal processes to infer this window's focus.
 
 ### Minimal Config
 
@@ -128,9 +115,21 @@ The plugin subscribes to OpenCode v2 events and maps them to internal alert type
 | `session.tool.input.started` | — (recorded) | Tool call started; name recorded by call ID | `id`, `name` |
 | `session.tool.success` | `subagent` — Subagent Done | `task` tool completion, matched via call ID | `id`, `content` |
 
+Only sessions open in this TUI window are eligible. With tabs enabled, all open root-session tabs are included, even when inactive. Without tabs, only the current session page and its family are included; home and plugin pages receive no session alerts. Permissions and questions from child sessions can notify through their open parent tab. Child-session completion events remain excluded from the parent task's completion alert.
+
+The plugin deduplicates envelope event IDs for 24 hours using atomic claims in `~/.config/opencode/alert-events`. A writable shared directory prevents duplicate delivery by separate plugin modules or processes, independently of `filter.minInterval`; a new event ID can still notify subject to the configured filters. Expired claims are removed during subsequent notification activity. If storage is unavailable, deduplication falls back to bounded, best-effort memory state. Events without IDs retain the existing throttle behavior.
+
+Closing the TUI or unloading the plugin cancels pending notifications. Delayed notifications recheck the open tabs, current route, renderer lifetime, and focus before sending, so closing a tab or leaving the session page also suppresses its pending alert. Notifications already displayed by the operating system are not withdrawn. On all platforms, including Windows, `desktop.enabled` and `desktop.events` control desktop popups; sound is configured independently. Windows registration and notification processes run asynchronously so they do not block the TUI.
+
 ## Relationship with TUI Notifications
 
-OpenCode v2's TUI ships built-in notifications (configurable via the `attention` settings in `tui.json`). This plugin is complementary: it runs in the server process and delivers system-level desktop notifications and sounds, so alerts still fire when the TUI is closed or unfocused.
+OpenCode v2's TUI ships built-in notifications (configurable via the `attention` settings in `tui.json`). This plugin runs inside the TUI and sends OS desktop notifications and sounds for its open sessions. It does not intercept or replace the renderer's `triggerNotification`, and it does not notify after the TUI closes.
+
+If you have explicitly enabled TUI notifications or sounds, they can overlap with this plugin's alerts. To use this plugin for those channels, set the following in `tui.json`. The plugin does not change this configuration automatically.
+
+```json
+{ "attention": { "notifications": false, "sound": false } }
+```
 
 ## Requirements
 
